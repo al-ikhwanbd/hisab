@@ -130,7 +130,12 @@ async function load(){
 function renderPersonalTotal(){
   const deposit=totalPaid('all'),profit=totalProfit('all'),expense=totalExpense('all'),remaining=currentFund();
   q('personalTotalResult').innerHTML=`<div class="report-title"><h3>সংস্থার মোট হিসাব</h3><p>প্রতিষ্ঠার শুরু থেকে সকল বছরের সমন্বিত হিসাব</p></div>
-  `;
+  <div class="summary-grid total-summary">
+    <article><span>মোট জমা</span><strong>${money(deposit)}</strong></article>
+    <article><span>মোট লভ্যাংশ</span><strong>${money(profit)}</strong></article>
+    <article><span>মোট খরচ</span><strong>${money(expense)}</strong></article>
+    <article class="highlight"><span>অবশিষ্ট তহবিল</span><strong>${money(remaining)}</strong></article>
+  </div>`;
 }
 
 function renderPersonal(){
@@ -185,14 +190,19 @@ function renderAllMembersPreview(){
 function renderTotal(){
   const deposit=totalPaid('all'),profit=totalProfit('all'),expense=totalExpense('all'),remaining=currentFund();
   q('totalResult').innerHTML=`<div class="report-title"><h3>সংস্থার মোট হিসাব</h3><p>প্রতিষ্ঠার শুরু থেকে সকল বছরের সমন্বিত হিসাব</p></div>
-  ${printButton('totalResult')}`;
+  <div class="summary-grid total-summary">
+    <article><span>মোট জমা</span><strong>${money(deposit)}</strong></article>
+    <article><span>মোট লভ্যাংশ</span><strong>${money(profit)}</strong></article>
+    <article><span>মোট খরচ</span><strong>${money(expense)}</strong></article>
+    <article class="highlight"><span>অবশিষ্ট তহবিল</span><strong>${money(remaining)}</strong></article>
+  </div>${printButton('totalResult')}`;
 }
 function renderProfitExpenseDetails(){
   const profitTotal=totalProfit('all'),expenseTotal=totalExpense('all');
   const profitRows=profits.slice().sort((a,b)=>Number(a.year)-Number(b.year)).map((x,i)=>`<tr><td>${(i+1).toLocaleString('bn-BD')}</td><td>${esc(x.year)}</td><td class="detail-text">${esc(x.description||'-')}</td><td>${money(x.total_profit)}</td></tr>`).join('');
   const expenseRows=expenses.slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))).map((x,i)=>`<tr><td>${(i+1).toLocaleString('bn-BD')}</td><td>${esc(x.year)}</td><td>${esc(x.date||'-')}</td><td class="detail-text">${esc(x.description||'-')}</td><td>${money(x.amount)}</td></tr>`).join('');
   q('profitExpenseDetailsResult').innerHTML=`
-    <div class="detail-block profit-detail"><div class="detail-heading"><span>📈</span><h3>লভ্যাংশের বিস্তারিত বিবরণ</h3></div></div>
+    <div class="detail-block profit-detail"><div class="detail-heading"><span>📈</span><h3>লভ্যাংশের বিস্তারিত বিবরণ</h3></div><div class="table-wrap"><table class="detail-table"><thead><tr><th>ক্রমিক</th><th>সাল</th><th class="detail-text">বিবরণ</th><th>পরিমাণ</th></tr></thead><tbody>${profitRows||'<tr><td colspan="4">কোনো লভ্যাংশের তথ্য নেই।</td></tr>'}</tbody><tfoot><tr class="total-row"><td colspan="3">মোট লভ্যাংশ</td><td>${money(profitTotal)}</td></tr></tfoot></table></div></div>
     <div class="detail-block expense-detail"><div class="detail-heading"><span>🧾</span><h3>খরচের বিস্তারিত বিবরণ</h3></div><div class="table-wrap"><table class="detail-table"><thead><tr><th>ক্রমিক</th><th>সাল</th><th>তারিখ</th><th class="detail-text">বিবরণ</th><th>পরিমাণ</th></tr></thead><tbody>${expenseRows||'<tr><td colspan="5">কোনো খরচের তথ্য নেই।</td></tr>'}</tbody><tfoot><tr class="total-row"><td colspan="4">মোট খরচ</td><td>${money(expenseTotal)}</td></tr></tfoot></table></div></div>
     ${printButton('profitExpenseDetailsResult')}`;
 }
@@ -201,11 +211,9 @@ function renderFund(){
   const body=assets.map((a,i)=>`<tr><td>${(i+1).toLocaleString('bn-BD')}</td><td>${esc(a.year)}</td><td>${esc(a.category)}</td><td class="detail-text">${esc(a.description)}</td><td>${money(a.amount)}</td><td>${esc(a.date||'')}</td></tr>`).join('');
   q('fundResult').innerHTML=`<div class="report-title"><h3>তহবিল ব্যবহারের খাতসমূহ</h3><p>যে সকল খাতে তহবিল ব্যবহার করা হয়েছে</p></div>
   <div class="detail-block fund-detail"><div class="detail-heading"><span>🏦</span><h3>তহবিল ব্যবহারের খাতসমূহ</h3></div><div class="table-wrap"><table class="detail-table"><thead><tr><th>ক্রমিক</th><th>সাল</th><th>খাত</th><th class="detail-text">বিস্তারিত</th><th>পরিমাণ</th><th>তারিখ</th></tr></thead><tbody>${body||'<tr><td colspan="6">এখনও কোনো খাত যোগ করা হয়নি।</td></tr>'}</tbody><tfoot><tr class="total-row"><td colspan="4">বিভিন্ন খাতে ব্যবহার করা মোট</td><td>${money(allocated)}</td><td></td></tr></tfoot></table></div></div>
-  <div class="detail-block fund-summary-detail"><div class="detail-heading"><span>💰</span><h3>তহবিলের সংক্ষিপ্ত হিসাব<div class="fund-summary-requested" style="text-align:left">
-<div class="fund-summary-row"><span>মোট অবশিষ্ট তহবিল</span><strong id="totalRemainingFund">৳ ০</strong></div>
-<div class="fund-summary-row"><span>বিভিন্ন খাতে ব্যবহার</span><strong id="fundUsedVarious">৳ ০</strong></div>
-<div class="fund-summary-row"><span>বর্তমান অবশিষ্ট তহবিল</span><strong id="currentRemainingFund">৳ ০</strong></div>
-</div></h3></div></div>${printButton('fundResult')}`;
+  <div class="detail-block fund-summary-detail"><div class="detail-heading"><span>💰</span><h3>তহবিলের সংক্ষিপ্ত হিসাব</h3></div><div class="table-wrap"><table class="detail-table fund-summary-table"><tbody>
+    <tr><th>মোট জমা</th><td>${money(deposit)}</td></tr><tr><th>মোট লভ্যাংশ</th><td>${money(profit)}</td></tr><tr><th>মোট বিবিধ খরচ</th><td>${money(expense)}</td></tr><tr><th>বিভিন্ন খাতে ব্যবহার</th><td>${money(allocated)}</td></tr><tr class="highlight-row"><th>বর্তমান অবশিষ্ট তহবিল</th><td><b>${money(remaining)}</b></td></tr>
+  </tbody></table></div></div>${printButton('fundResult')}`;
 }
 function renderNotices(){
   const html=notices.map(n=>`<article class="notice"><h3>${esc(n.title)}</h3><p>${esc(n.description)}</p><small>${esc(n.publish_date||'')}</small></article>`).join('');
@@ -274,7 +282,7 @@ function renderAdminData(){
     return memberSort(ma,mb)||Number(a.year)-Number(b.year)||Number(a.month)-Number(b.month);
   });
   q('adminPayments').innerHTML=`<table><thead><tr><th>ক্রম</th><th class="name">সদস্য</th><th>সাল</th><th>মাস</th><th>জমা</th><th>অ্যাকশন</th></tr></thead><tbody>`+paymentRows.map((p,i)=>{const m=members.find(x=>String(x.id)===String(p.member_id))||{};return `<tr><td>${Number(m.serial_no||i+1).toLocaleString('bn-BD')}</td><td class="name">${esc(m.name||'')}</td><td>${esc(p.year)}</td><td>${months[Number(p.month)-1]||''}</td><td>${money(p.paid_amount)}</td><td class="row-actions"><button class="small-btn edit" onclick="editPayment('${esc(p.id)}')">Edit</button><button class="small-btn del" onclick="del('payments','${esc(p.id)}')">Delete</button></td></tr>`}).join('')+`</tbody></table>`;
-  q('adminProfits').innerHTML=`<table><thead></thead><tbody>`+profits.map(x=>`<tr><td>${esc(x.year)}</td><td class="name">${esc(x.description||'')}</td><td>${money(x.total_profit)}</td><td class="row-actions"><button class="small-btn edit" onclick="editProfit('${esc(x.id)}')">Edit</button><button class="small-btn del" onclick="del('profits','${esc(x.id)}')">Delete</button></td></tr>`).join('')+`</tbody></table>`;
+  q('adminProfits').innerHTML=`<table><thead><tr><th>বছর</th><th class="name">বিবরণ</th><th>মোট লভ্যাংশ</th><th>অ্যাকশন</th></tr></thead><tbody>`+profits.map(x=>`<tr><td>${esc(x.year)}</td><td class="name">${esc(x.description||'')}</td><td>${money(x.total_profit)}</td><td class="row-actions"><button class="small-btn edit" onclick="editProfit('${esc(x.id)}')">Edit</button><button class="small-btn del" onclick="del('profits','${esc(x.id)}')">Delete</button></td></tr>`).join('')+`</tbody></table>`;
   q('adminExpenses').innerHTML=`<table><thead><tr><th>বছর</th><th>তারিখ</th><th class="name">বিবরণ</th><th>পরিমাণ</th><th>অ্যাকশন</th></tr></thead><tbody>`+expenses.map(x=>`<tr><td>${esc(x.year)}</td><td>${esc(x.date||'')}</td><td class="name">${esc(x.description)}</td><td>${money(x.amount)}</td><td class="row-actions"><button class="small-btn edit" onclick="editExpense('${esc(x.id)}')">Edit</button><button class="small-btn del" onclick="del('expenses','${esc(x.id)}')">Delete</button></td></tr>`).join('')+`</tbody></table>`;
   q('adminAssets').innerHTML=`<table><thead><tr><th>বছর</th><th>খাত</th><th class="name">বিবরণ</th><th>পরিমাণ</th><th>অ্যাকশন</th></tr></thead><tbody>`+assets.map(x=>`<tr><td>${esc(x.year)}</td><td>${esc(x.category)}</td><td class="name">${esc(x.description)}</td><td>${money(x.amount)}</td><td class="row-actions"><button class="small-btn edit" onclick="editAsset('${esc(x.id)}')">Edit</button><button class="small-btn del" onclick="del('assets','${esc(x.id)}')">Delete</button></td></tr>`).join('')+`</tbody></table>`;
   q('adminNotices').innerHTML=`<table><thead><tr><th>শিরোনাম</th><th class="name">বিবরণ</th><th>তারিখ</th><th>অ্যাকশন</th></tr></thead><tbody>`+notices.map(x=>`<tr><td>${esc(x.title)}</td><td class="name">${esc(x.description)}</td><td>${esc(x.publish_date||'')}</td><td class="row-actions"><button class="small-btn edit" onclick="editNotice('${esc(x.id)}')">Edit</button><button class="small-btn del" onclick="del('notices','${esc(x.id)}')">Delete</button></td></tr>`).join('')+`</tbody></table>`;
@@ -378,17 +386,3 @@ document.addEventListener('DOMContentLoaded',()=>{
   q('memberForm').addEventListener('submit',e=>{e.preventDefault();saveMember()});q('paymentForm').addEventListener('submit',e=>{e.preventDefault();savePayment()});q('profitForm').addEventListener('submit',e=>{e.preventDefault();saveProfit()});q('expenseForm').addEventListener('submit',e=>{e.preventDefault();saveExpense()});q('assetForm').addEventListener('submit',e=>{e.preventDefault();saveAsset()});q('noticeForm').addEventListener('submit',e=>{e.preventDefault();saveNotice()});
   route();load();
 });
-
-// Requested fund-summary calculation:
-// current remaining = total remaining fund - amount used in various sectors.
-function updateRequestedFundSummary(totalDeposit, totalProfit, totalMiscExpense, usedVarious) {
-  const totalRemaining = Number(totalDeposit || 0) + Number(totalProfit || 0) - Number(totalMiscExpense || 0);
-  const currentRemaining = totalRemaining - Number(usedVarious || 0);
-  const fmt = n => `৳ ${Number(n || 0).toLocaleString('bn-BD')}`;
-  const a = document.getElementById('totalRemainingFund');
-  const b = document.getElementById('fundUsedVarious');
-  const c = document.getElementById('currentRemainingFund');
-  if (a) a.textContent = fmt(totalRemaining);
-  if (b) b.textContent = fmt(usedVarious);
-  if (c) c.textContent = fmt(currentRemaining);
-}

@@ -91,7 +91,73 @@
     <div id="noticeResult" class="notice-list"><div class="loading">ডাটা লোড হচ্ছে...</div></div>
   </section>
 
-  
+  <section id="admin" class="result-card page-section">
+    <div class="section-title"><span class="title-icon">🔐</span><div><h2>এডমিন প্যানেল</h2><p>শুধুমাত্র অনুমোদিত অ্যাডমিনের জন্য</p></div></div>
+
+    <div id="loginBox" class="login-card">
+      <h3>এডমিন লগইন</h3>
+      <p class="muted">অনুমোদিত ইমেইল ও পাসওয়ার্ড দিয়ে প্রবেশ করুন।</p>
+      <div class="login-fields"><input id="adminEmail" type="email" autocomplete="username" placeholder="ইমেইল"><input id="adminPassword" type="password" autocomplete="current-password" placeholder="পাসওয়ার্ড"></div>
+      <button class="btn btn-primary full" id="loginBtn">🔐 লগইন</button>
+      <div id="loginMsg" class="message"></div>
+    </div>
+
+    <div id="adminBox" hidden>
+      <div class="adminbar"><div><b id="adminUser"></b><span class="admin-badge">ADMIN</span></div><button class="btn danger" id="logoutBtn">লগআউট</button></div>
+
+      <h2 class="choose-title">যুক্ত করার অপশন বাছাই করুন</h2>
+      <div class="admin-select-row">
+        <select id="addSelect" aria-label="যুক্ত করার অপশন">
+          <option value="">-- যুক্ত করার বিষয় নির্বাচন করুন --</option>
+          <option value="member">নতুন সদস্য</option>
+          <option value="payment">মাসিক জমা</option>
+          <option value="profit">লভ্যাংশ</option>
+          <option value="expense">বিবিধ খরচ</option>
+          <option value="asset">অবশিষ্ট তহবিলের খাত</option>
+          <option value="notice">নোটিশ</option>
+        </select>
+        <button type="button" class="btn btn-primary admin-open" id="addOpen">অনুসন্ধান করুন</button>
+      </div>
+
+      <div id="addArea" class="admin-form-area">
+        <form id="memberForm" class="admin-form"><h3>👤 নতুন সদস্য</h3><input name="id" type="hidden"><input name="name" required placeholder="সদস্যের নাম"><input name="address" placeholder="ঠিকানা"><input name="mobile" placeholder="মোবাইল নম্বর"><div class="form-actions"><button class="btn btn-primary">সদস্য সংরক্ষণ</button><button type="button" class="btn btn-light" onclick="resetForm('memberForm')">পরিষ্কার</button></div></form>
+
+        <form id="paymentForm" class="admin-form"><h3>💰 মাসিক জমা</h3><input name="id" type="hidden"><select name="member_id" id="payMember" required></select><input name="year" type="number" min="2021" max="2100" required placeholder="বছর"><select name="month" required><option value="">-- শুরুর মাস নির্বাচন করুন --</option><option value="1">জানুয়ারি</option><option value="2">ফেব্রুয়ারি</option><option value="3">মার্চ</option><option value="4">এপ্রিল</option><option value="5">মে</option><option value="6">জুন</option><option value="7">জুলাই</option><option value="8">আগস্ট</option><option value="9">সেপ্টেম্বর</option><option value="10">অক্টোবর</option><option value="11">নভেম্বর</option><option value="12">ডিসেম্বর</option></select><input name="month_count" type="number" min="1" max="12" value="1" required placeholder="কত মাস"><input name="paid_amount" type="number" min="0" step="0.01" required placeholder="মোট জমার পরিমাণ"><div class="form-actions"><button class="btn btn-primary">জমা সংরক্ষণ</button><button type="button" class="btn btn-light" onclick="resetForm('paymentForm')">পরিষ্কার</button></div></form>
+
+        <form id="profitForm" class="admin-form"><h3>📈 লভ্যাংশ</h3><input name="id" type="hidden"><input name="year" type="number" min="2021" max="2100" required placeholder="বছর"><input name="description" required placeholder="লভ্যাংশের বিবরণ"><input name="total_profit" type="number" min="0" required placeholder="মোট লভ্যাংশ"><div class="form-actions"><button class="btn btn-primary">লভ্যাংশ সংরক্ষণ</button><button type="button" class="btn btn-light" onclick="resetForm('profitForm')">পরিষ্কার</button></div></form>
+
+        <form id="expenseForm" class="admin-form"><h3>🧾 বিবিধ খরচ</h3><input name="id" type="hidden"><input name="year" type="number" min="2021" max="2100" required placeholder="বছর"><input name="date" type="date" required><input name="description" required placeholder="খরচের বিবরণ"><input name="amount" type="number" min="0" required placeholder="পরিমাণ"><div class="form-actions"><button class="btn btn-primary">খরচ সংরক্ষণ</button><button type="button" class="btn btn-light" onclick="resetForm('expenseForm')">পরিষ্কার</button></div></form>
+
+        <form id="assetForm" class="admin-form"><h3>🏦 অবশিষ্ট তহবিলের খাত</h3><input name="id" type="hidden"><input name="year" type="number" min="2021" max="2100" required placeholder="বছর"><input name="date" type="date" required><input name="category" required placeholder="খাত, যেমন জমি বাবদ"><input name="description" required placeholder="কার কাছে/কোথায় / বিস্তারিত"><input name="amount" type="number" min="0" required placeholder="পরিমাণ"><div class="form-actions"><button class="btn btn-primary">খাত সংরক্ষণ</button><button type="button" class="btn btn-light" onclick="resetForm('assetForm')">পরিষ্কার</button></div></form>
+
+        <form id="noticeForm" class="admin-form"><h3>📢 নোটিশ</h3><input name="id" type="hidden"><input name="title" required placeholder="নোটিশের শিরোনাম"><textarea name="description" required placeholder="নোটিশের বিবরণ"></textarea><div class="form-actions"><button class="btn btn-primary">নোটিশ সংরক্ষণ</button><button type="button" class="btn btn-light" onclick="resetForm('noticeForm')">পরিষ্কার</button></div></form>
+      </div>
+
+      <h2 class="choose-title">সম্পাদনার অপশন বাছাই করুন</h2>
+      <div class="admin-select-row">
+        <select id="manageSelect" aria-label="সম্পাদনার অপশন">
+          <option value="">-- সম্পাদনার বিষয় নির্বাচন করুন --</option>
+          <option value="members">সদস্য ব্যবস্থাপনা</option>
+          <option value="payments">জমা ব্যবস্থাপনা</option>
+          <option value="profits">লভ্যাংশ ব্যবস্থাপনা</option>
+          <option value="expenses">খরচ ব্যবস্থাপনা</option>
+          <option value="assets">অবশিষ্ট তহবিলের খাত ব্যবস্থাপনা</option>
+          <option value="notices">নোটিশ ব্যবস্থাপনা</option>
+        </select>
+        <button type="button" class="btn btn-primary admin-open" id="manageOpen">অনুসন্ধান করুন</button>
+      </div>
+
+      <div id="managementArea" class="management-area">
+        <div id="manageMembers" class="admin-data"><h3>👥 সদস্য ব্যবস্থাপনা</h3><div id="adminMembers" class="table-wrap"></div></div>
+        <div id="managePayments" class="admin-data"><h3>💰 জমা ব্যবস্থাপনা</h3><div class="management-filter"><label>বছর নির্বাচন করুন<select id="paymentManageYear"></select></label><label>মাস নির্বাচন করুন<select id="paymentManageMonth"><option value="all">সকল মাস</option><option value="1">জানুয়ারি</option><option value="2">ফেব্রুয়ারি</option><option value="3">মার্চ</option><option value="4">এপ্রিল</option><option value="5">মে</option><option value="6">জুন</option><option value="7">জুলাই</option><option value="8">আগস্ট</option><option value="9">সেপ্টেম্বর</option><option value="10">অক্টোবর</option><option value="11">নভেম্বর</option><option value="12">ডিসেম্বর</option></select></label><label>অনুসন্ধান করুন<input id="paymentManageSearch" type="search" placeholder="নাম / ক্রমিক / মোবাইল"></label></div><div id="adminPayments" class="table-wrap"></div></div>
+        <div id="manageProfits" class="admin-data"><h3>📈 লভ্যাংশ ব্যবস্থাপনা</h3><div id="adminProfits" class="table-wrap"></div></div>
+        <div id="manageExpenses" class="admin-data"><h3>🧾 খরচ ব্যবস্থাপনা</h3><div id="adminExpenses" class="table-wrap"></div></div>
+        <div id="manageAssets" class="admin-data"><h3>🏦 অবশিষ্ট তহবিলের খাত ব্যবস্থাপনা</h3><div id="adminAssets" class="table-wrap"></div></div>
+        <div id="manageNotices" class="admin-data"><h3>📢 নোটিশ ব্যবস্থাপনা</h3><div id="adminNotices" class="table-wrap"></div></div>
+      </div>
+      <div id="adminMsg" class="message"></div>
+    </div>
+  </section>
 
   <section id="home" class="hidden-home" aria-hidden="true"></section>
 </main>
