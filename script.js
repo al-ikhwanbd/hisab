@@ -13,11 +13,14 @@ const MONTHS_PER_YEAR=12;
 const YEARLY_REQUIRED=MONTHLY_REQUIRED*MONTHS_PER_YEAR;
 
 function getYears(){
-  const found=new Set(['2021','2022','2023','2024']);
+  const found=new Set();
   const addYear=y=>{
     const year=String(y??'').trim();
     if(year)found.add(year);
   };
+  // প্রতিষ্ঠানের চালু হিসাবের বছরগুলো স্থায়ীভাবে থাকবে; নতুন কোনো বছরে
+  // প্রকৃত টাকা/হিসাব থাকলে সেটিও স্বয়ংক্রিয়ভাবে যোগ হবে।
+  ['2021','2022','2023','2024'].forEach(addYear);
   payments.forEach(p=>{if(Number(p.paid_amount||0)>0)addYear(p.year)});
   profits.forEach(p=>{if(Number(p.total_profit||0)>0)addYear(p.year)});
   expenses.forEach(p=>{if(Number(p.amount||0)>0)addYear(p.year)});
@@ -321,7 +324,8 @@ function printSection(id){
 
   const reportTitle=target.closest('.page-section')?.querySelector('.report-title');
   printWindow.document.open();
-  printWindow.document.write(`<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>প্রতিবেদন</title><link rel="stylesheet" href="style.css"><style>
+  const styleUrl=new URL('style.css',window.location.href).href;
+  printWindow.document.write(`<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>প্রতিবেদন</title><link rel="stylesheet" href="${styleUrl}"><style>
     body{margin:0;background:#fff!important;font-family:inherit}
     .print-page{width:100%;box-sizing:border-box;padding:10px}
     .print-page .print-target{display:block!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important;box-shadow:none!important;border:0!important}
@@ -357,10 +361,18 @@ function printSection(id){
     try{printWindow.focus();printWindow.print();}
     finally{setTimeout(()=>{try{printWindow.close()}catch(e){}},1500)}
   };
-  if(printWindow.document.fonts&&printWindow.document.fonts.ready){
-    printWindow.document.fonts.ready.then(()=>setTimeout(doPrint,250));
+  const waitForPrintPage=()=>{
+    const fontsReady=printWindow.document.fonts&&printWindow.document.fonts.ready
+      ? printWindow.document.fonts.ready
+      : Promise.resolve();
+    fontsReady.then(()=>setTimeout(doPrint,350));
+  };
+  const printStyle=printWindow.document.querySelector('link[rel="stylesheet"]');
+  if(printStyle){
+    if(printStyle.sheet) waitForPrintPage();
+    else { printStyle.onload=waitForPrintPage; printStyle.onerror=waitForPrintPage; setTimeout(waitForPrintPage,1200); }
   }else{
-    setTimeout(doPrint,500);
+    waitForPrintPage();
   }
 }
 function csvDownload(name,rows){const csv='\ufeff'+rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
