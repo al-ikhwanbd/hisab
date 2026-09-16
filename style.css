@@ -173,7 +173,7 @@ footer{background:#076f45;color:#fff;text-align:center;padding:24px 0;font-size:
 .fund-summary-table{margin-top:20px}
 .fund-summary-table h3{margin:0 0 10px;color:var(--green-dark)}
 .highlight-row th,.highlight-row td{font-weight:800}
-.fund-summary-table tbody tr:nth-child(odd) th,.fund-summary-table tbody tr:nth-child(odd) td{background:#eef7f2}.fund-summary-table tbody tr:nth-child(even) th,.fund-summary-table tbody tr:nth-child(even) td{background:#fff}
+.fund-summary-table tbody th{text-align:left!important}.fund-summary-table tbody tr:nth-child(odd) th,.fund-summary-table tbody tr:nth-child(odd) td{background:#eef7f2}.fund-summary-table tbody tr:nth-child(even) th,.fund-summary-table tbody tr:nth-child(even) td{background:#fff}
 @media(max-width:520px){.compact-summary{grid-template-columns:1fr}.admin-select-row select{height:70px;font-size:19px}}
 
 @media print{

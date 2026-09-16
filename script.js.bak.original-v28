@@ -91,8 +91,7 @@ function totalDue(year){return Math.max(totalRequired(year)-totalPaid(year),0)}
 function totalExpense(year){return expenses.filter(e=>!year||year==='all'||Number(normalizeYear(e.year))===Number(normalizeYear(year))).reduce((s,e)=>s+Number(e.amount||0),0)}
 function totalProfit(year){return profits.filter(p=>!year||year==='all'||Number(normalizeYear(p.year))===Number(normalizeYear(year))).reduce((s,p)=>s+Number(p.total_profit||0),0)}
 function totalAssets(year){return assets.filter(a=>!year||year==='all'||Number(normalizeYear(a.year))===Number(normalizeYear(year))).reduce((s,a)=>s+Number(a.amount||0),0)}
-function remainingFund(){return totalPaid('all')+totalProfit('all')-totalExpense('all')}
-function currentFund(){return remainingFund()-totalAssets('all')}
+function currentFund(){return totalPaid('all')+totalProfit('all')-totalExpense('all')-totalAssets('all')}
 function printButton(id){return `<div class="result-print"><button class="print-btn" type="button" onclick="printSection('${id}')">🖨 প্রিন্ট / PDF</button></div>`}
 
 async function load(){
@@ -134,7 +133,7 @@ function renderPersonalTotal(){
   <div class="summary-grid total-summary">
     <article><span>মোট জমা</span><strong>${money(deposit)}</strong></article>
     <article><span>মোট লভ্যাংশ</span><strong>${money(profit)}</strong></article>
-    <article><span>মোট বিবিধ খরচ</span><strong>${money(expense)}</strong></article>
+    <article><span>মোট খরচ</span><strong>${money(expense)}</strong></article>
     <article class="highlight"><span>অবশিষ্ট তহবিল</span><strong>${money(remaining)}</strong></article>
   </div>`;
 }
@@ -194,7 +193,7 @@ function renderTotal(){
   <div class="summary-grid total-summary">
     <article><span>মোট জমা</span><strong>${money(deposit)}</strong></article>
     <article><span>মোট লভ্যাংশ</span><strong>${money(profit)}</strong></article>
-    <article><span>মোট বিবিধ খরচ</span><strong>${money(expense)}</strong></article>
+    <article><span>মোট খরচ</span><strong>${money(expense)}</strong></article>
     <article class="highlight"><span>অবশিষ্ট তহবিল</span><strong>${money(remaining)}</strong></article>
   </div>${printButton('totalResult')}`;
 }
@@ -213,7 +212,7 @@ function renderFund(){
   q('fundResult').innerHTML=`<div class="report-title"><h3>তহবিল ব্যবহারের খাতসমূহ</h3><p>যে সকল খাতে তহবিল ব্যবহার করা হয়েছে</p></div>
   <div class="detail-block fund-detail"><div class="detail-heading"><span>🏦</span><h3>তহবিল ব্যবহারের খাতসমূহ</h3></div><div class="table-wrap"><table class="detail-table"><thead><tr><th>ক্রমিক</th><th>সাল</th><th>খাত</th><th class="detail-text">বিস্তারিত</th><th>পরিমাণ</th><th>তারিখ</th></tr></thead><tbody>${body||'<tr><td colspan="6">এখনও কোনো খাত যোগ করা হয়নি।</td></tr>'}</tbody><tfoot><tr class="total-row"><td colspan="4">বিভিন্ন খাতে ব্যবহার করা মোট</td><td>${money(allocated)}</td><td></td></tr></tfoot></table></div></div>
   <div class="detail-block fund-summary-detail"><div class="detail-heading"><span>💰</span><h3>তহবিলের সংক্ষিপ্ত হিসাব</h3></div><div class="table-wrap"><table class="detail-table fund-summary-table"><tbody>
-    <tr><th>মোট অবশিষ্ট তহবিল</th><td>${money(remainingFund())}</td></tr><tr><th>বিভিন্ন খাতে ব্যবহার</th><td>${money(allocated)}</td></tr><tr class="highlight-row"><th>বর্তমান অবশিষ্ট তহবিল</th><td><b>${money(currentFund())}</b></td></tr>
+    <tr><th>মোট জমা</th><td>${money(deposit)}</td></tr><tr><th>মোট লভ্যাংশ</th><td>${money(profit)}</td></tr><tr><th>মোট বিবিধ খরচ</th><td>${money(expense)}</td></tr><tr><th>বিভিন্ন খাতে ব্যবহার</th><td>${money(allocated)}</td></tr><tr class="highlight-row"><th>বর্তমান অবশিষ্ট তহবিল</th><td><b>${money(remaining)}</b></td></tr>
   </tbody></table></div></div>${printButton('fundResult')}`;
 }
 function renderNotices(){
