@@ -144,16 +144,27 @@ function renderPersonal(){
   if(!y||!id){q('personalMessage').textContent='সাল ও সদস্য নির্বাচন করুন।';q('personalMessage').className='message error';return;}
   const m=members.find(x=>String(x.id)===String(id));if(!m)return;
   const label=y==='all'?'সকল বছরের মোট হিসাব':`${y} সালের হিসাব`;
+  const detailYears=selectedYears(y);
+  const detailRows=detailYears.flatMap(yr=>months.map((monthName,idx)=>{
+    const paid=memberMonthPaid(m,yr,idx+1);
+    const due=Math.max(MONTHLY_REQUIRED-paid,0);
+    return `<tr><td>${esc(yr)}</td><td>${monthName}</td><td>${paid>0?money(paid):'৳ ০'}</td><td>${money(due)}</td></tr>`;
+  })).join('');
   q('personalResult').innerHTML=`<div class="report-title"><h3>${esc(m.name)}</h3><p>${label}</p></div>
     <div class="member-summary compact-summary">
       <div>মোট পরিশোধ<strong>${money(memberPaid(m,y))}</strong></div>
       <div>মোট বাকি<strong>${money(memberDue(m,y))}</strong></div>
-    </div>${printButton('personalResult')}`;
+    </div>
+    <div class="print-only personal-print-details"><h4>মাসভিত্তিক বিস্তারিত হিসাব</h4><div class="table-wrap"><table><thead><tr><th>সাল</th><th>মাস</th><th>পরিশোধ</th><th>বাকি</th></tr></thead><tbody>${detailRows}</tbody></table></div></div>
+    ${printButton('personalResult')}`;
   q('personalResult').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+function memberMonthPaid(m,y,month){
+  return payments.filter(p=>isCountablePayment(p)&&String(p.member_id)===String(m.id)&&Number(normalizeYear(p.year))===Number(normalizeYear(y))&&Number(p.month)===month).reduce((s,p)=>s+Number(p.paid_amount||0),0);
+}
 function paidCell(m,y,month){
-  const amount=payments.filter(p=>isCountablePayment(p)&&String(p.member_id)===String(m.id)&&Number(normalizeYear(p.year))===Number(normalizeYear(y))&&Number(p.month)===month).reduce((s,p)=>s+Number(p.paid_amount||0),0);
+  const amount=memberMonthPaid(m,y,month);
   return amount>0?money(amount):'';
 }
 function renderAllMembers(){
