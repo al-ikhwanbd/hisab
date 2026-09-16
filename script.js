@@ -268,7 +268,6 @@ function renderAdminData(){
     // ০ টাকার placeholder record database-এ থাকবে, কিন্তু Excel-এর প্রকৃত জমার
     // তালিকার সঙ্গে মিল রেখে Admin management-এ শুধু বাস্তব জমা দেখানো হবে।
     if(Number(p.paid_amount||0)<=0)return false;
-    if(String(p.year)==='2025')return false;
     if(selectedYear!=='all' && String(p.year)!==String(selectedYear))return false;
     if(selectedMonth!=='all' && Number(p.month)!==Number(selectedMonth))return false;
     if(!search)return true;
@@ -298,40 +297,71 @@ function openMainMenu(){setMenu(true)}
 function route(){const id=(location.hash||'#personal').slice(1);const valid=['personal','members','due','profitExpenseDetails','fund','notices','admin'];const active=valid.includes(id)?id:'personal';document.querySelectorAll('.page-section').forEach(s=>s.classList.toggle('active',s.id===active));document.querySelectorAll('#mobileMenu a[data-view]').forEach(a=>a.classList.toggle('active',a.dataset.view===active));setMenu(false)}
 function printSection(id){
   const target=q(id);if(!target)return;
-  document.querySelectorAll('.print-target').forEach(x=>x.classList.remove('print-target'));
-  document.querySelectorAll('.print-section').forEach(x=>x.classList.remove('print-section'));
-  document.querySelectorAll('.print-header-generated').forEach(x=>x.remove());
-  const parentSection=target.closest('.page-section');
-  if(parentSection)parentSection.classList.add('print-section');
-  target.classList.add('print-target');
 
-  const personalSummary=id==='personalResult'?target.querySelector('.compact-summary'):null;
-  const personalDetails=id==='personalResult'?target.querySelector('.personal-print-details'):null;
-  const originalNext=personalSummary?personalSummary.nextSibling:null;
-  if(personalSummary&&personalDetails)personalDetails.after(personalSummary);
+  // আলাদা print window-এ শুধু নির্বাচিত রিপোর্টই রাখা হচ্ছে।
+  // এতে ব্রাউজারের Save as PDF-এ মূল পেজের selection box/সংক্ষিপ্ত অংশ চলে আসবে না।
+  const printWindow=window.open('','_blank','width=900,height=700');
+  if(!printWindow){showMessage('প্রিন্ট পেজ খোলা যায়নি। ব্রাউজারের pop-up অনুমতি দিন।',false);return}
+
+  const clone=target.cloneNode(true);
+  clone.querySelectorAll('.result-print').forEach(x=>x.remove());
+  clone.querySelectorAll('.print-header-generated').forEach(x=>x.remove());
+
+  if(id==='personalResult'){
+    const summary=clone.querySelector('.compact-summary');
+    const details=clone.querySelector('.personal-print-details');
+    if(summary&&details)details.after(summary);
+  }
 
   const header=document.createElement('div');
   header.className='print-header-generated';
   header.innerHTML='<h1>আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ</h1><p>বানিপুর, কেন্দুয়া, নেত্রকোনা, মোমেনশাহী, ঢাকা</p>';
-  target.prepend(header);
-  document.body.classList.add('printing-report');
+  clone.prepend(header);
+  clone.classList.add('print-target');
 
-  const cleanup=()=>{
-    if(originalNext&&originalNext.parentNode){
-      originalNext.parentNode.insertBefore(personalSummary,originalNext);
-    }else if(personalSummary&&personalSummary.parentNode){
-      personalSummary.parentNode.appendChild(personalSummary);
+  const reportTitle=target.closest('.page-section')?.querySelector('.report-title');
+  printWindow.document.open();
+  printWindow.document.write(`<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>প্রতিবেদন</title><link rel="stylesheet" href="style.css"><style>
+    body{margin:0;background:#fff!important;font-family:inherit}
+    .print-page{width:100%;box-sizing:border-box;padding:10px}
+    .print-page .print-target{display:block!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important;box-shadow:none!important;border:0!important}
+    .print-page .print-header-generated{display:block!important;text-align:center!important;margin:0 0 14px!important;padding:0!important}
+    .print-page .print-header-generated h1{display:block!important;margin:0 0 4px!important;font-size:24px!important;line-height:1.3!important;font-weight:800!important;text-align:center!important}
+    .print-page .print-header-generated p{display:block!important;margin:0 0 12px!important;font-size:12px!important;line-height:1.4!important;font-weight:500!important;text-align:center!important}
+    .print-page .result-print{display:none!important}
+    .print-page .print-only{display:block!important}
+    .print-page .table-wrap{overflow:visible!important}
+    .print-page table{width:100%!important}
+    @media print{
+      @page{margin:10mm}
+      body{margin:0!important}
+      .print-page{padding:0!important}
+      .print-page .print-target{display:block!important}
+      .print-page .print-only{display:block!important;visibility:visible!important}
+      .print-page .print-only *{visibility:visible!important}
+      .print-page .result-print{display:none!important}
+      .print-page .report-title:before,.print-page .report-title:after{content:none!important}
+      .print-page .report-title{margin:0 0 14px!important;text-align:center!important}
+      .print-page .report-title h3{margin:0 0 5px!important;font-size:21px!important;line-height:1.35!important}
+      .print-page .report-title p{margin:0!important;font-size:12px!important;line-height:1.4!important}
+      .print-page .personal-print-details{margin-top:14px!important}
+      .print-page .personal-print-details h4{margin:0 0 8px!important;font-size:15px!important;text-align:left!important}
+      .print-page table{font-size:10px!important}
+      .print-page th,.print-page td{padding:6px!important}
     }
-    header.remove();
-    target.classList.remove('print-target');
-    if(parentSection)parentSection.classList.remove('print-section');
-    document.body.classList.remove('printing-report');
-  };
+  </style></head><body><div class="print-page"></div></body></html>`);
+  printWindow.document.close();
+  printWindow.document.querySelector('.print-page').appendChild(clone);
 
-  setTimeout(()=>{
-    window.print();
-    setTimeout(cleanup,1200);
-  },250);
+  const doPrint=()=>{
+    try{printWindow.focus();printWindow.print();}
+    finally{setTimeout(()=>{try{printWindow.close()}catch(e){}},1500)}
+  };
+  if(printWindow.document.fonts&&printWindow.document.fonts.ready){
+    printWindow.document.fonts.ready.then(()=>setTimeout(doPrint,250));
+  }else{
+    setTimeout(doPrint,500);
+  }
 }
 function csvDownload(name,rows){const csv='\ufeff'+rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function downloadAllMembersCSV(){const y=q('allMembersYear').value||'all';const rows=[['ক্রমিক','সদস্যের নাম',...(y==='all'?years:months),'মোট পরিশোধ','মোট বাকি']];members.forEach((m,i)=>rows.push([m.serial_no||i+1,m.name,...(y==='all'?years.map(v=>memberPaid(m,v)):months.map((_,mi)=>payments.filter(p=>isCountablePayment(p)&&String(p.member_id)===String(m.id)&&Number(normalizeYear(p.year))===Number(normalizeYear(y))&&Number(p.month)===mi+1).reduce((s,p)=>s+Number(p.paid_amount||0),0))),memberPaid(m,y),memberDue(m,y)]));csvDownload(`members-${y}.csv`,rows)}
