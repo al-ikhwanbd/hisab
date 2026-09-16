@@ -22,9 +22,6 @@ function getYears(){
   // প্রকৃত টাকা/হিসাব থাকলে সেটিও স্বয়ংক্রিয়ভাবে যোগ হবে।
   ['2021','2022','2023','2024'].forEach(addYear);
   payments.forEach(p=>{if(Number(p.paid_amount||0)>0)addYear(p.year)});
-  profits.forEach(p=>{if(Number(p.total_profit||0)>0)addYear(p.year)});
-  expenses.forEach(p=>{if(Number(p.amount||0)>0)addYear(p.year)});
-  assets.forEach(p=>{if(Number(p.amount||0)>0)addYear(p.year)});
   return [...found].sort((a,b)=>Number(a)-Number(b));
 }
 function fillYearSelect(el,includeAll=false){
@@ -301,31 +298,28 @@ function route(){const id=(location.hash||'#personal').slice(1);const valid=['pe
 function printSection(id){
   const target=q(id);if(!target)return;
 
-  // আলাদা print window-এ শুধু নির্বাচিত রিপোর্টই রাখা হচ্ছে।
-  // এতে ব্রাউজারের Save as PDF-এ মূল পেজের selection box/সংক্ষিপ্ত অংশ চলে আসবে না।
-  const printWindow=window.open('','_blank','width=900,height=700');
-  if(!printWindow){showMessage('প্রিন্ট পেজ খোলা যায়নি। ব্রাউজারের pop-up অনুমতি দিন।',false);return}
-
+  // PDF/Print-এর জন্য একই রিপোর্টের একটি আলাদা, self-contained print page তৈরি করা হচ্ছে।
+  // style.css আলাদাভাবে load না করে inline করা হয়, যাতে Android/Chrome-এর print preview
+  // page-load timing-এর কারণে "There was a problem printing the page" না আসে।
   const clone=target.cloneNode(true);
   clone.querySelectorAll('.result-print').forEach(x=>x.remove());
   clone.querySelectorAll('.print-header-generated').forEach(x=>x.remove());
-
   if(id==='personalResult'){
     const summary=clone.querySelector('.compact-summary');
     const details=clone.querySelector('.personal-print-details');
     if(summary&&details)details.after(summary);
   }
-
   const header=document.createElement('div');
   header.className='print-header-generated';
   header.innerHTML='<h1>আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ</h1><p>বানিপুর, কেন্দুয়া, নেত্রকোনা, মোমেনশাহী, ঢাকা</p>';
   clone.prepend(header);
   clone.classList.add('print-target');
 
-  const reportTitle=target.closest('.page-section')?.querySelector('.report-title');
-  printWindow.document.open();
+  const printWindow=window.open('','_blank','width=900,height=700');
+  if(!printWindow){showMessage('প্রিন্ট পেজ খোলা যায়নি। ব্রাউজারের pop-up অনুমতি দিন।',false);return}
+
   const styleUrl=new URL('style.css',window.location.href).href;
-  printWindow.document.write(`<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>প্রতিবেদন</title><link rel="stylesheet" href="${styleUrl}"><style>
+  const basePrintCss=`
     body{margin:0;background:#fff!important;font-family:inherit}
     .print-page{width:100%;box-sizing:border-box;padding:10px}
     .print-page .print-target{display:block!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important;box-shadow:none!important;border:0!important}
@@ -352,29 +346,32 @@ function printSection(id){
       .print-page .personal-print-details h4{margin:0 0 8px!important;font-size:15px!important;text-align:left!important}
       .print-page table{font-size:10px!important}
       .print-page th,.print-page td{padding:6px!important}
-    }
-  </style></head><body><div class="print-page"></div></body></html>`);
-  printWindow.document.close();
-  printWindow.document.querySelector('.print-page').appendChild(clone);
+    }`;
 
-  const doPrint=()=>{
-    try{printWindow.focus();printWindow.print();}
-    finally{setTimeout(()=>{try{printWindow.close()}catch(e){}},1500)}
-  };
-  const waitForPrintPage=()=>{
+  const buildPrintPage=css=>{
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>প্রতিবেদন</title><style>${css.replace(/<\/style/gi,'<\\/style')}</style></head><body><div class="print-page"></div></body></html>`);
+    printWindow.document.close();
+    const page=printWindow.document.querySelector('.print-page');
+    if(!page){try{printWindow.close()}catch(e){}showMessage('প্রিন্ট পেজ তৈরি করা যায়নি।',false);return}
+    page.appendChild(clone);
+    const doPrint=()=>{
+      try{printWindow.focus();printWindow.print();}
+      catch(e){showMessage('PDF/Print চালু করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।',false)}
+    };
     const fontsReady=printWindow.document.fonts&&printWindow.document.fonts.ready
-      ? printWindow.document.fonts.ready
-      : Promise.resolve();
-    fontsReady.then(()=>setTimeout(doPrint,350));
+      ?printWindow.document.fonts.ready:Promise.resolve();
+    fontsReady.then(()=>setTimeout(doPrint,300));
+    printWindow.onafterprint=()=>setTimeout(()=>{try{printWindow.close()}catch(e){}},300);
   };
-  const printStyle=printWindow.document.querySelector('link[rel="stylesheet"]');
-  if(printStyle){
-    if(printStyle.sheet) waitForPrintPage();
-    else { printStyle.onload=waitForPrintPage; printStyle.onerror=waitForPrintPage; setTimeout(waitForPrintPage,1200); }
-  }else{
-    waitForPrintPage();
-  }
+
+  // আগে CSS inline করার চেষ্টা; fetch ব্যর্থ হলে embedded print CSS দিয়েও রিপোর্টটি print হবে।
+  fetch(styleUrl,{cache:'no-store'}).then(r=>{
+    if(!r.ok)throw new Error('style load failed');
+    return r.text();
+  }).then(css=>buildPrintPage(css+'\n'+basePrintCss)).catch(()=>buildPrintPage(basePrintCss));
 }
+
 function csvDownload(name,rows){const csv='\ufeff'+rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function downloadAllMembersCSV(){const y=q('allMembersYear').value||'all';const rows=[['ক্রমিক','সদস্যের নাম',...(y==='all'?years:months),'মোট পরিশোধ','মোট বাকি']];members.forEach((m,i)=>rows.push([m.serial_no||i+1,m.name,...(y==='all'?years.map(v=>memberPaid(m,v)):months.map((_,mi)=>payments.filter(p=>isCountablePayment(p)&&String(p.member_id)===String(m.id)&&Number(normalizeYear(p.year))===Number(normalizeYear(y))&&Number(p.month)===mi+1).reduce((s,p)=>s+Number(p.paid_amount||0),0))),memberPaid(m,y),memberDue(m,y)]));csvDownload(`members-${y}.csv`,rows)}
 function downloadAssetsCSV(){csvDownload('fund-assets.csv',[['বছর','খাত','বিস্তারিত','পরিমাণ','তারিখ'],...assets.map(a=>[a.year,a.category,a.description,a.amount,a.date])])}
