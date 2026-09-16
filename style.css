@@ -182,6 +182,7 @@ footer{background:#076f45;color:#fff;text-align:center;padding:24px 0;font-size:
   body{background:#fff!important}
   body.printing-report .main{margin:0!important;padding:0!important}
   body.printing-report .page-section{margin:0!important;padding:0!important;min-height:0!important}
+  body.printing-report .page-section:not(.print-section){display:none!important}
   body.printing-report *{visibility:hidden!important}
   body.printing-report .print-section{display:block!important;visibility:visible!important;position:static!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important;box-shadow:none!important;border:0!important}
   body.printing-report .print-section > :not(.print-target){display:none!important}
@@ -201,7 +202,8 @@ footer{background:#076f45;color:#fff;text-align:center;padding:24px 0;font-size:
   body.printing-report .report-title h3{margin:0 0 5px!important;font-size:21px!important;line-height:1.35!important;color:#1d2925!important}
   body.printing-report .report-title p{margin:0!important;font-size:12px!important;line-height:1.4!important;color:#687872!important}
   body.printing-report .print-only{display:block!important;visibility:visible!important}
-  body.printing-report .print-only *{visibility:visible!important}
+  body.printing-report .print-only *{display:revert!important;visibility:visible!important}
+  body.printing-report .personal-print-details{display:block!important;visibility:visible!important}
   body.printing-report .personal-print-details{margin-top:14px!important}
   body.printing-report .personal-print-details h4{margin:0 0 8px!important;font-size:15px!important;text-align:left!important}
   body.printing-report .personal-print-details table{font-size:10px!important}
