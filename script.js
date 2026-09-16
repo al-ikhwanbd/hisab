@@ -235,17 +235,31 @@ async function savePayment(){
     showMessage('মাসিক জমা সংরক্ষণ হয়েছে ✓',true);resetForm('paymentForm');await load();return;
   }
   const monthList=Array.from({length:monthCount},(_,i)=>startMonth+i);
-  const existing=await sb.from('payments').select('month,paid_amount').eq('member_id',d.member_id).eq('year',year).in('month',monthList);
+  const existing=await sb.from('payments').select('id,month,paid_amount').eq('member_id',d.member_id).eq('year',year).in('month',monthList);
   if(existing.error){showMessage(existing.error.message,false);return}
-  const paidExisting=(existing.data||[]).filter(x=>Number(x.paid_amount||0)>0);
+  const existingRows=existing.data||[];
+  const paidExisting=existingRows.filter(x=>Number(x.paid_amount||0)>0);
   if(paidExisting.length){
     const names=paidExisting.map(x=>months[Number(x.month)-1]).join(', ');
     showMessage(`এই সদস্যের ${year} সালের ${names} মাসের জমা আগে থেকেই আছে। কোনো তথ্য পরিবর্তন করা হয়নি।`,false);return;
   }
   const totalCents=Math.round(totalAmount*100),baseCents=Math.floor(totalCents/monthCount),remainder=totalCents-baseCents*monthCount;
-  const rows=monthList.map((month,i)=>({member_id:d.member_id,year,month,required_amount:MONTHLY_REQUIRED,paid_amount:(baseCents+(i===monthCount-1?remainder:0))/100,payment_date:null}));
-  const res=await sb.from('payments').insert(rows);
-  if(res.error){showMessage(res.error.message,false);return}
+  const updateRows=[],insertRows=[];
+  monthList.forEach((month,i)=>{
+    const amount=(baseCents+(i===monthCount-1?remainder:0))/100;
+    const found=existingRows.find(x=>Number(x.month)===month);
+    const row={member_id:d.member_id,year,month,required_amount:MONTHLY_REQUIRED,paid_amount:amount,payment_date:null};
+    if(found) updateRows.push({id:found.id,row});
+    else insertRows.push(row);
+  });
+  for(const item of updateRows){
+    const res=await sb.from('payments').update(item.row).eq('id',item.id);
+    if(res.error){showMessage(res.error.message,false);return}
+  }
+  if(insertRows.length){
+    const res=await sb.from('payments').insert(insertRows);
+    if(res.error){showMessage(res.error.message,false);return}
+  }
   showMessage(`${monthCount} মাসের জমা একসাথে সংরক্ষণ হয়েছে ✓`,true);resetForm('paymentForm');await load();
 }
 async function saveProfit(){const d=Object.fromEntries(new FormData(q('profitForm')).entries());const row={year:+d.year,description:d.description.trim(),total_profit:+d.total_profit};const res=d.id?await sb.from('profits').update(row).eq('id',d.id):await sb.from('profits').upsert(row,{onConflict:'year'});if(res.error){showMessage(res.error.message,false);return}showMessage('লভ্যাংশ সংরক্ষণ হয়েছে ✓',true);resetForm('profitForm');await load()}
