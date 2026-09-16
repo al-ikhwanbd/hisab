@@ -213,3 +213,21 @@ footer{background:#076f45;color:#fff;text-align:center;padding:24px 0;font-size:
 .detail-heading{display:flex;align-items:center;gap:9px;margin:2px 2px 13px;padding:8px 10px;border-radius:11px;background:var(--green-soft);color:var(--green-dark)}
 .detail-heading span{font-size:22px}.detail-heading h3{margin:0;font-size:19px}.detail-table th,.detail-table td{padding:11px 9px}.detail-table .detail-text{text-align:left;white-space:normal;min-width:170px}.detail-block tfoot td{font-weight:800}.print-only{display:none}.expense-detail{margin-top:22px}
 @media(max-width:520px){.detail-block{padding:9px}.detail-heading h3{font-size:17px}.detail-table{font-size:14px}.detail-table th,.detail-table td{padding:9px 7px}.detail-table .detail-text{min-width:145px}}
+
+
+/* Android Chrome PDF/Print: same-document, isolated report */
+@media print{
+  body.printing-report > *{visibility:hidden!important}
+  body.printing-report .print-host,
+  body.printing-report .print-host *{visibility:visible!important}
+  body.printing-report .print-host{display:block!important;position:static!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important;box-shadow:none!important;border:0!important}
+  body.printing-report .print-host .print-target{display:block!important;position:static!important;width:100%!important;margin:0!important;padding:10px!important;background:#fff!important;box-shadow:none!important;border:0!important}
+  body.printing-report .print-host .result-print{display:none!important}
+  body.printing-report .print-host .print-only{display:block!important;visibility:visible!important}
+  body.printing-report .print-host .print-only *{visibility:visible!important}
+  body.printing-report .print-host .table-wrap{overflow:visible!important}
+  body.printing-report .print-host table{width:100%!important}
+}
+@media screen{
+  body.printing-report .print-host{display:none!important}
+}

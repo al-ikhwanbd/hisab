@@ -16,11 +16,10 @@ function getYears(){
   const found=new Set();
   const addYear=y=>{
     const year=String(y??'').trim();
-    if(year)found.add(year);
+    if(year && /^\d{4}$/.test(year))found.add(year);
   };
-  // প্রতিষ্ঠানের চালু হিসাবের বছরগুলো স্থায়ীভাবে থাকবে; নতুন কোনো বছরে
-  // প্রকৃত টাকা/হিসাব থাকলে সেটিও স্বয়ংক্রিয়ভাবে যোগ হবে।
-  ['2021','2022','2023','2024'].forEach(addYear);
+  // Year selection is based only on actual positive member payments.
+  // A year with no deposited money must not appear in payment-related selectors.
   payments.forEach(p=>{if(Number(p.paid_amount||0)>0)addYear(p.year)});
   return [...found].sort((a,b)=>Number(a)-Number(b));
 }
@@ -296,80 +295,56 @@ function setMenu(open){const menu=q('mobileMenu'),overlay=q('menuOverlay'),btn=q
 function openMainMenu(){setMenu(true)}
 function route(){const id=(location.hash||'#personal').slice(1);const valid=['personal','members','due','profitExpenseDetails','fund','notices','admin'];const active=valid.includes(id)?id:'personal';document.querySelectorAll('.page-section').forEach(s=>s.classList.toggle('active',s.id===active));document.querySelectorAll('#mobileMenu a[data-view]').forEach(a=>a.classList.toggle('active',a.dataset.view===active));setMenu(false)}
 function printSection(id){
-  const target=q(id);if(!target)return;
+  const target=q(id);
+  if(!target)return;
 
-  // PDF/Print-এর জন্য একই রিপোর্টের একটি আলাদা, self-contained print page তৈরি করা হচ্ছে।
-  // style.css আলাদাভাবে load না করে inline করা হয়, যাতে Android/Chrome-এর print preview
-  // page-load timing-এর কারণে "There was a problem printing the page" না আসে।
+  // Android Chrome-এর Save as PDF-এ নতুন window/document ব্যবহার না করে
+  // একই পেজে একটি অস্থায়ী print-only report রাখা হচ্ছে। এতে Chrome-এর
+  // print preview মূল পেজের বদলে ঠিক রিপোর্টটিই render করে।
+  document.querySelectorAll('.print-host').forEach(x=>x.remove());
+  document.body.classList.remove('printing-report');
+
   const clone=target.cloneNode(true);
   clone.querySelectorAll('.result-print').forEach(x=>x.remove());
   clone.querySelectorAll('.print-header-generated').forEach(x=>x.remove());
+
   if(id==='personalResult'){
     const summary=clone.querySelector('.compact-summary');
     const details=clone.querySelector('.personal-print-details');
     if(summary&&details)details.after(summary);
   }
+
   const header=document.createElement('div');
   header.className='print-header-generated';
   header.innerHTML='<h1>আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ</h1><p>বানিপুর, কেন্দুয়া, নেত্রকোনা, মোমেনশাহী, ঢাকা</p>';
   clone.prepend(header);
   clone.classList.add('print-target');
 
-  const printWindow=window.open('','_blank','width=900,height=700');
-  if(!printWindow){showMessage('প্রিন্ট পেজ খোলা যায়নি। ব্রাউজারের pop-up অনুমতি দিন।',false);return}
+  const host=document.createElement('div');
+  host.className='print-host';
+  host.appendChild(clone);
+  document.body.appendChild(host);
+  document.body.classList.add('printing-report');
 
-  const styleUrl=new URL('style.css',window.location.href).href;
-  const basePrintCss=`
-    body{margin:0;background:#fff!important;font-family:inherit}
-    .print-page{width:100%;box-sizing:border-box;padding:10px}
-    .print-page .print-target{display:block!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important;box-shadow:none!important;border:0!important}
-    .print-page .print-header-generated{display:block!important;text-align:center!important;margin:0 0 14px!important;padding:0!important}
-    .print-page .print-header-generated h1{display:block!important;margin:0 0 4px!important;font-size:24px!important;line-height:1.3!important;font-weight:800!important;text-align:center!important}
-    .print-page .print-header-generated p{display:block!important;margin:0 0 12px!important;font-size:12px!important;line-height:1.4!important;font-weight:500!important;text-align:center!important}
-    .print-page .result-print{display:none!important}
-    .print-page .print-only{display:block!important}
-    .print-page .table-wrap{overflow:visible!important}
-    .print-page table{width:100%!important}
-    @media print{
-      @page{margin:10mm}
-      body{margin:0!important}
-      .print-page{padding:0!important}
-      .print-page .print-target{display:block!important}
-      .print-page .print-only{display:block!important;visibility:visible!important}
-      .print-page .print-only *{visibility:visible!important}
-      .print-page .result-print{display:none!important}
-      .print-page .report-title:before,.print-page .report-title:after{content:none!important}
-      .print-page .report-title{margin:0 0 14px!important;text-align:center!important}
-      .print-page .report-title h3{margin:0 0 5px!important;font-size:21px!important;line-height:1.35!important}
-      .print-page .report-title p{margin:0!important;font-size:12px!important;line-height:1.4!important}
-      .print-page .personal-print-details{margin-top:14px!important}
-      .print-page .personal-print-details h4{margin:0 0 8px!important;font-size:15px!important;text-align:left!important}
-      .print-page table{font-size:10px!important}
-      .print-page th,.print-page td{padding:6px!important}
-    }`;
-
-  const buildPrintPage=css=>{
-    printWindow.document.open();
-    printWindow.document.write(`<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>প্রতিবেদন</title><style>${css.replace(/<\/style/gi,'<\\/style')}</style></head><body><div class="print-page"></div></body></html>`);
-    printWindow.document.close();
-    const page=printWindow.document.querySelector('.print-page');
-    if(!page){try{printWindow.close()}catch(e){}showMessage('প্রিন্ট পেজ তৈরি করা যায়নি।',false);return}
-    page.appendChild(clone);
-    const doPrint=()=>{
-      try{printWindow.focus();printWindow.print();}
-      catch(e){showMessage('PDF/Print চালু করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।',false)}
-    };
-    const fontsReady=printWindow.document.fonts&&printWindow.document.fonts.ready
-      ?printWindow.document.fonts.ready:Promise.resolve();
-    fontsReady.then(()=>setTimeout(doPrint,300));
-    printWindow.onafterprint=()=>setTimeout(()=>{try{printWindow.close()}catch(e){}},300);
+  let cleaned=false;
+  const cleanup=()=>{
+    if(cleaned)return;
+    cleaned=true;
+    document.body.classList.remove('printing-report');
+    host.remove();
+    window.removeEventListener('afterprint',cleanup);
   };
 
-  // আগে CSS inline করার চেষ্টা; fetch ব্যর্থ হলে embedded print CSS দিয়েও রিপোর্টটি print হবে।
-  fetch(styleUrl,{cache:'no-store'}).then(r=>{
-    if(!r.ok)throw new Error('style load failed');
-    return r.text();
-  }).then(css=>buildPrintPage(css+'\n'+basePrintCss)).catch(()=>buildPrintPage(basePrintCss));
+  window.addEventListener('afterprint',()=>setTimeout(cleanup,250),{once:true});
+  setTimeout(()=>{
+    try{
+      window.focus();
+      window.print();
+    }catch(e){
+      cleanup();
+      showMessage('PDF/Print চালু করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।',false);
+    }
+  },250);
 }
 
 function csvDownload(name,rows){const csv='\ufeff'+rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
