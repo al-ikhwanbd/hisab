@@ -177,13 +177,14 @@ footer{background:#076f45;color:#fff;text-align:center;padding:24px 0;font-size:
 @media(max-width:520px){.compact-summary{grid-template-columns:1fr}.admin-select-row select{height:70px;font-size:19px}}
 
 @media print{
-  @page{size:auto;margin:6mm 8mm 8mm}
+  @page{size:auto;margin:8mm}
   html,body{margin:0!important;padding:0!important}
   body{background:#fff!important}
   body.printing-report .main{margin:0!important;padding:0!important}
   body.printing-report .page-section{margin:0!important;padding:0!important;min-height:0!important}
   body.printing-report *{visibility:hidden!important}
   body.printing-report .print-section{display:block!important;visibility:visible!important;position:static!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important;box-shadow:none!important;border:0!important}
+  body.printing-report .print-section > :not(.print-target){display:none!important}
   body.printing-report .print-section .print-target,
   body.printing-report .print-section .print-target *{visibility:visible!important}
   body.printing-report .print-target{display:block!important;position:static!important;left:auto!important;top:auto!important;width:100%!important;margin:0!important;padding:10px!important;background:#fff!important;box-shadow:none!important;border:0!important}
