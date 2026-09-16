@@ -16,12 +16,12 @@ function getYears(){
   const found=new Set(['2021','2022','2023','2024']);
   const addYear=y=>{
     const year=String(y??'').trim();
-    if(year && year!=='2025' && year!=='2026')found.add(year);
+    if(year)found.add(year);
   };
-  payments.forEach(p=>addYear(p.year));
-  profits.forEach(p=>addYear(p.year));
-  expenses.forEach(p=>addYear(p.year));
-  assets.forEach(p=>addYear(p.year));
+  payments.forEach(p=>{if(Number(p.paid_amount||0)>0)addYear(p.year)});
+  profits.forEach(p=>{if(Number(p.total_profit||0)>0)addYear(p.year)});
+  expenses.forEach(p=>{if(Number(p.amount||0)>0)addYear(p.year)});
+  assets.forEach(p=>{if(Number(p.amount||0)>0)addYear(p.year)});
   return [...found].sort((a,b)=>Number(a)-Number(b));
 }
 function fillYearSelect(el,includeAll=false){
@@ -66,7 +66,7 @@ function normalizeYear(v){
 // হিসাবের স্তরে ২০২৫ সালের payment বাদ দেওয়া হচ্ছে; Database-এর কোনো data
 // পরিবর্তন বা delete করা হচ্ছে না।
 function isCountablePayment(p){
-  return String(p?.year ?? '').trim()!=='2025';
+  return true;
 }
 function memberPaid(m,year){
   const target = year==='all'||!year ? null : normalizeYear(year);
@@ -234,10 +234,11 @@ async function savePayment(){
     showMessage('মাসিক জমা সংরক্ষণ হয়েছে ✓',true);resetForm('paymentForm');await load();return;
   }
   const monthList=Array.from({length:monthCount},(_,i)=>startMonth+i);
-  const existing=await sb.from('payments').select('month').eq('member_id',d.member_id).eq('year',year).in('month',monthList);
+  const existing=await sb.from('payments').select('month,paid_amount').eq('member_id',d.member_id).eq('year',year).in('month',monthList);
   if(existing.error){showMessage(existing.error.message,false);return}
-  if((existing.data||[]).length){
-    const names=(existing.data||[]).map(x=>months[Number(x.month)-1]).join(', ');
+  const paidExisting=(existing.data||[]).filter(x=>Number(x.paid_amount||0)>0);
+  if(paidExisting.length){
+    const names=paidExisting.map(x=>months[Number(x.month)-1]).join(', ');
     showMessage(`এই সদস্যের ${year} সালের ${names} মাসের জমা আগে থেকেই আছে। কোনো তথ্য পরিবর্তন করা হয়নি।`,false);return;
   }
   const totalCents=Math.round(totalAmount*100),baseCents=Math.floor(totalCents/monthCount),remainder=totalCents-baseCents*monthCount;
@@ -295,7 +296,43 @@ function openManagement(name){document.querySelectorAll('.admin-data').forEach(x
 function setMenu(open){const menu=q('mobileMenu'),overlay=q('menuOverlay'),btn=q('menuBtn');menu.classList.toggle('open',open);overlay.classList.toggle('show',open);btn.setAttribute('aria-expanded',String(open));document.body.classList.toggle('menu-open',open)}
 function openMainMenu(){setMenu(true)}
 function route(){const id=(location.hash||'#personal').slice(1);const valid=['personal','members','due','profitExpenseDetails','fund','notices','admin'];const active=valid.includes(id)?id:'personal';document.querySelectorAll('.page-section').forEach(s=>s.classList.toggle('active',s.id===active));document.querySelectorAll('#mobileMenu a[data-view]').forEach(a=>a.classList.toggle('active',a.dataset.view===active));setMenu(false)}
-function printSection(id){const target=q(id);if(!target)return;document.querySelectorAll('.print-target').forEach(x=>x.classList.remove('print-target'));document.querySelectorAll('.print-section').forEach(x=>x.classList.remove('print-section'));document.querySelectorAll('.print-header-generated').forEach(x=>x.remove());const parentSection=target.closest('.page-section');if(parentSection)parentSection.classList.add('print-section');target.classList.add('print-target');const header=document.createElement('div');header.className='print-header-generated';header.innerHTML='<h1>আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ</h1><p>বানিপুর, কেন্দুয়া, নেত্রকোনা, মোমেনশাহী, ঢাকা</p>';target.prepend(header);document.body.classList.add('printing-report');setTimeout(()=>{window.print();setTimeout(()=>{header.remove();target.classList.remove('print-target');if(parentSection)parentSection.classList.remove('print-section');document.body.classList.remove('printing-report')},800)},120)}
+function printSection(id){
+  const target=q(id);if(!target)return;
+  document.querySelectorAll('.print-target').forEach(x=>x.classList.remove('print-target'));
+  document.querySelectorAll('.print-section').forEach(x=>x.classList.remove('print-section'));
+  document.querySelectorAll('.print-header-generated').forEach(x=>x.remove());
+  const parentSection=target.closest('.page-section');
+  if(parentSection)parentSection.classList.add('print-section');
+  target.classList.add('print-target');
+
+  const personalSummary=id==='personalResult'?target.querySelector('.compact-summary'):null;
+  const personalDetails=id==='personalResult'?target.querySelector('.personal-print-details'):null;
+  const originalNext=personalSummary?personalSummary.nextSibling:null;
+  if(personalSummary&&personalDetails)personalDetails.after(personalSummary);
+
+  const header=document.createElement('div');
+  header.className='print-header-generated';
+  header.innerHTML='<h1>আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ</h1><p>বানিপুর, কেন্দুয়া, নেত্রকোনা, মোমেনশাহী, ঢাকা</p>';
+  target.prepend(header);
+  document.body.classList.add('printing-report');
+
+  const cleanup=()=>{
+    if(originalNext&&originalNext.parentNode){
+      originalNext.parentNode.insertBefore(personalSummary,originalNext);
+    }else if(personalSummary&&personalSummary.parentNode){
+      personalSummary.parentNode.appendChild(personalSummary);
+    }
+    header.remove();
+    target.classList.remove('print-target');
+    if(parentSection)parentSection.classList.remove('print-section');
+    document.body.classList.remove('printing-report');
+  };
+
+  setTimeout(()=>{
+    window.print();
+    setTimeout(cleanup,1200);
+  },250);
+}
 function csvDownload(name,rows){const csv='\ufeff'+rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function downloadAllMembersCSV(){const y=q('allMembersYear').value||'all';const rows=[['ক্রমিক','সদস্যের নাম',...(y==='all'?years:months),'মোট পরিশোধ','মোট বাকি']];members.forEach((m,i)=>rows.push([m.serial_no||i+1,m.name,...(y==='all'?years.map(v=>memberPaid(m,v)):months.map((_,mi)=>payments.filter(p=>isCountablePayment(p)&&String(p.member_id)===String(m.id)&&Number(normalizeYear(p.year))===Number(normalizeYear(y))&&Number(p.month)===mi+1).reduce((s,p)=>s+Number(p.paid_amount||0),0))),memberPaid(m,y),memberDue(m,y)]));csvDownload(`members-${y}.csv`,rows)}
 function downloadAssetsCSV(){csvDownload('fund-assets.csv',[['বছর','খাত','বিস্তারিত','পরিমাণ','তারিখ'],...assets.map(a=>[a.year,a.category,a.description,a.amount,a.date])])}
