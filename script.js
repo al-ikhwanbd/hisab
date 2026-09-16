@@ -16,10 +16,11 @@ function getYears(){
   const found=new Set();
   const addYear=y=>{
     const year=String(y??'').trim();
-    if(year && /^\d{4}$/.test(year))found.add(year);
+    if(year)found.add(year);
   };
-  // Year selection is based only on actual positive member payments.
-  // A year with no deposited money must not appear in payment-related selectors.
+  // প্রতিষ্ঠানের চালু হিসাবের বছরগুলো স্থায়ীভাবে থাকবে; নতুন কোনো বছরে
+  // প্রকৃত টাকা/হিসাব থাকলে সেটিও স্বয়ংক্রিয়ভাবে যোগ হবে।
+  ['2021','2022','2023','2024'].forEach(addYear);
   payments.forEach(p=>{if(Number(p.paid_amount||0)>0)addYear(p.year)});
   return [...found].sort((a,b)=>Number(a)-Number(b));
 }
@@ -295,23 +296,27 @@ function setMenu(open){const menu=q('mobileMenu'),overlay=q('menuOverlay'),btn=q
 function openMainMenu(){setMenu(true)}
 function route(){const id=(location.hash||'#personal').slice(1);const valid=['personal','members','due','profitExpenseDetails','fund','notices','admin'];const active=valid.includes(id)?id:'personal';document.querySelectorAll('.page-section').forEach(s=>s.classList.toggle('active',s.id===active));document.querySelectorAll('#mobileMenu a[data-view]').forEach(a=>a.classList.toggle('active',a.dataset.view===active));setMenu(false)}
 function printSection(id){
-  const target=q(id);
-  if(!target)return;
+  const target=q(id);if(!target)return;
 
-  // Android Chrome-এর Save as PDF-এ নতুন window/document ব্যবহার না করে
-  // একই পেজে একটি অস্থায়ী print-only report রাখা হচ্ছে। এতে Chrome-এর
-  // print preview মূল পেজের বদলে ঠিক রিপোর্টটিই render করে।
-  document.querySelectorAll('.print-host').forEach(x=>x.remove());
-  document.body.classList.remove('printing-report');
+  // Android/Chrome-সহ সাধারণ ব্রাউজারে স্থিতিশীল PDF/Print-এর জন্য
+  // আলাদা popup/window নয়, একই document-এর একটি সাময়িক print root ব্যবহার করা হচ্ছে।
+  // এতে popup-blocker, blank-window এবং print-preview rendering error এড়ানো যায়।
+  const oldRoot=q('__printRoot');if(oldRoot)oldRoot.remove();
+  const oldStyle=q('__printRootStyle');if(oldStyle)oldStyle.remove();
 
   const clone=target.cloneNode(true);
   clone.querySelectorAll('.result-print').forEach(x=>x.remove());
   clone.querySelectorAll('.print-header-generated').forEach(x=>x.remove());
+  clone.querySelectorAll('.print-only').forEach(x=>x.classList.remove('print-only'));
 
   if(id==='personalResult'){
     const summary=clone.querySelector('.compact-summary');
     const details=clone.querySelector('.personal-print-details');
-    if(summary&&details)details.after(summary);
+    if(details){
+      details.style.display='block';
+      details.style.visibility='visible';
+      if(summary)details.after(summary);
+    }
   }
 
   const header=document.createElement('div');
@@ -320,33 +325,61 @@ function printSection(id){
   clone.prepend(header);
   clone.classList.add('print-target');
 
-  const host=document.createElement('div');
-  host.className='print-host';
-  host.appendChild(clone);
-  document.body.appendChild(host);
-  document.body.classList.add('printing-report');
+  const root=document.createElement('div');
+  root.id='__printRoot';
+  root.appendChild(clone);
+  document.body.appendChild(root);
+
+  const style=document.createElement('style');
+  style.id='__printRootStyle';
+  style.textContent=`
+    #__printRoot{display:none}
+    #__printRoot .print-target{display:block!important;width:100%!important;margin:0!important;padding:10px!important;background:#fff!important;box-shadow:none!important;border:0!important;box-sizing:border-box!important}
+    #__printRoot .print-header-generated{display:block!important;text-align:center!important;margin:0 0 14px!important;padding:0!important}
+    #__printRoot .print-header-generated h1{display:block!important;margin:0 0 4px!important;font-size:24px!important;line-height:1.3!important;font-weight:800!important;text-align:center!important}
+    #__printRoot .print-header-generated p{display:block!important;margin:0 0 12px!important;font-size:12px!important;line-height:1.4!important;text-align:center!important}
+    #__printRoot .result-print{display:none!important}
+    #__printRoot .personal-print-details{display:block!important;visibility:visible!important;margin-top:14px!important}
+    #__printRoot .personal-print-details h4{margin:0 0 8px!important;font-size:15px!important;text-align:left!important}
+    #__printRoot .table-wrap{overflow:visible!important}
+    #__printRoot table{width:100%!important;border-collapse:collapse!important;font-size:10px!important}
+    #__printRoot th,#__printRoot td{padding:6px!important}
+    @media print{
+      @page{size:auto;margin:10mm}
+      html,body{margin:0!important;padding:0!important;background:#fff!important}
+      body > *:not(#__printRoot){display:none!important}
+      #__printRoot{display:block!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important}
+      #__printRoot .print-target{display:block!important;visibility:visible!important;position:static!important;width:100%!important;margin:0!important;padding:0!important}
+      #__printRoot .print-target *{visibility:visible!important}
+      #__printRoot .report-title:before,#__printRoot .report-title:after{content:none!important}
+      #__printRoot .report-title{margin:0 0 14px!important;text-align:center!important}
+      #__printRoot .report-title h3{margin:0 0 5px!important;font-size:21px!important;line-height:1.35!important}
+      #__printRoot .report-title p{margin:0!important;font-size:12px!important;line-height:1.4!important}
+      #__printRoot .member-summary{margin-top:14px!important}
+      #__printRoot .personal-print-details{display:block!important;visibility:visible!important;margin-top:14px!important}
+      #__printRoot .personal-print-details table{font-size:10px!important}
+      #__printRoot .personal-print-details th,#__printRoot .personal-print-details td{padding:5px!important}
+    }`;
+  document.head.appendChild(style);
 
   let cleaned=false;
   const cleanup=()=>{
-    if(cleaned)return;
-    cleaned=true;
-    document.body.classList.remove('printing-report');
-    host.remove();
+    if(cleaned)return;cleaned=true;
+    const r=q('__printRoot');if(r)r.remove();
+    const st=q('__printRootStyle');if(st)st.remove();
     window.removeEventListener('afterprint',cleanup);
   };
+  window.addEventListener('afterprint',cleanup,{once:true});
 
-  window.addEventListener('afterprint',()=>setTimeout(cleanup,250),{once:true});
-  setTimeout(()=>{
-    try{
-      window.focus();
-      window.print();
-    }catch(e){
-      cleanup();
-      showMessage('PDF/Print চালু করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।',false);
-    }
-  },250);
+  // DOM-এ root বসার পর এক frame অপেক্ষা করে print preview চালু করা হচ্ছে।
+  requestAnimationFrame(()=>setTimeout(()=>{
+    try{window.print();}
+    catch(e){cleanup();showMessage('PDF/Print চালু করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।',false);}
+  },120));
+
+  // কিছু Android browser-এ afterprint event না এলে fallback cleanup।
+  setTimeout(cleanup,15000);
 }
-
 function csvDownload(name,rows){const csv='\ufeff'+rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function downloadAllMembersCSV(){const y=q('allMembersYear').value||'all';const rows=[['ক্রমিক','সদস্যের নাম',...(y==='all'?years:months),'মোট পরিশোধ','মোট বাকি']];members.forEach((m,i)=>rows.push([m.serial_no||i+1,m.name,...(y==='all'?years.map(v=>memberPaid(m,v)):months.map((_,mi)=>payments.filter(p=>isCountablePayment(p)&&String(p.member_id)===String(m.id)&&Number(normalizeYear(p.year))===Number(normalizeYear(y))&&Number(p.month)===mi+1).reduce((s,p)=>s+Number(p.paid_amount||0),0))),memberPaid(m,y),memberDue(m,y)]));csvDownload(`members-${y}.csv`,rows)}
 function downloadAssetsCSV(){csvDownload('fund-assets.csv',[['বছর','খাত','বিস্তারিত','পরিমাণ','তারিখ'],...assets.map(a=>[a.year,a.category,a.description,a.amount,a.date])])}
