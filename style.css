@@ -182,7 +182,6 @@ footer{background:#076f45;color:#fff;text-align:center;padding:24px 0;font-size:
   body{background:#fff!important}
   body.printing-report .main{margin:0!important;padding:0!important}
   body.printing-report .page-section{margin:0!important;padding:0!important;min-height:0!important}
-  body.printing-report .page-section:not(.print-section){display:none!important}
   body.printing-report *{visibility:hidden!important}
   body.printing-report .print-section{display:block!important;visibility:visible!important;position:static!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important;box-shadow:none!important;border:0!important}
   body.printing-report .print-section > :not(.print-target){display:none!important}
@@ -202,8 +201,7 @@ footer{background:#076f45;color:#fff;text-align:center;padding:24px 0;font-size:
   body.printing-report .report-title h3{margin:0 0 5px!important;font-size:21px!important;line-height:1.35!important;color:#1d2925!important}
   body.printing-report .report-title p{margin:0!important;font-size:12px!important;line-height:1.4!important;color:#687872!important}
   body.printing-report .print-only{display:block!important;visibility:visible!important}
-  body.printing-report .print-only *{display:revert!important;visibility:visible!important}
-  body.printing-report .personal-print-details{display:block!important;visibility:visible!important}
+  body.printing-report .print-only *{visibility:visible!important}
   body.printing-report .personal-print-details{margin-top:14px!important}
   body.printing-report .personal-print-details h4{margin:0 0 8px!important;font-size:15px!important;text-align:left!important}
   body.printing-report .personal-print-details table{font-size:10px!important}
@@ -215,10 +213,3 @@ footer{background:#076f45;color:#fff;text-align:center;padding:24px 0;font-size:
 .detail-heading{display:flex;align-items:center;gap:9px;margin:2px 2px 13px;padding:8px 10px;border-radius:11px;background:var(--green-soft);color:var(--green-dark)}
 .detail-heading span{font-size:22px}.detail-heading h3{margin:0;font-size:19px}.detail-table th,.detail-table td{padding:11px 9px}.detail-table .detail-text{text-align:left;white-space:normal;min-width:170px}.detail-block tfoot td{font-weight:800}.print-only{display:none}.expense-detail{margin-top:22px}
 @media(max-width:520px){.detail-block{padding:9px}.detail-heading h3{font-size:17px}.detail-table{font-size:14px}.detail-table th,.detail-table td{padding:9px 7px}.detail-table .detail-text{min-width:145px}}
-
-
-/* V24 print-only visibility fix: keep monthly personal details in Print/PDF output */
-@media print{
-  body.printing-report .print-only{display:block!important;visibility:visible!important}
-  body.printing-report .print-only *{visibility:visible!important}
-}
