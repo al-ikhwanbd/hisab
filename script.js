@@ -321,7 +321,15 @@ function printSection(id){
 
   const header=document.createElement('div');
   header.className='print-header-generated';
-  header.innerHTML='<h1>আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ</h1><p>বানিপুর, কেন্দুয়া, নেত্রকোনা, মোমেনশাহী, ঢাকা</p>';
+  const printTitles={
+    personalResult:'সদস্যদের ব্যক্তিগত বিস্তারিত হিসাব',
+    allMembersResult:'সকল সদস্যদের হিসাব',
+    totalResult:'সংস্থার মোট হিসাব',
+    profitExpenseDetailsResult:'লভ্যাংশ ও খরচের বিবরণ',
+    fundResult:'অবশিষ্ট তহবিলের খাত'
+  };
+  const printTitle=printTitles[id]||'হিসাবের প্রতিবেদন';
+  header.innerHTML=`<h1>আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ</h1><p class="print-address">বানিপুর, কেন্দুয়া, নেত্রকোনা, মোমেনশাহী, ঢাকা</p><h2>${printTitle}</h2>`;
   clone.prepend(header);
   clone.classList.add('print-target');
 
@@ -333,11 +341,13 @@ function printSection(id){
   const style=document.createElement('style');
   style.id='__printRootStyle';
   style.textContent=`
-    #__printRoot{display:none}
+    body.printing-report > *:not(#__printRoot){display:none!important}
+    body.printing-report #__printRoot{display:block!important}
     #__printRoot .print-target{display:block!important;width:100%!important;margin:0!important;padding:10px!important;background:#fff!important;box-shadow:none!important;border:0!important;box-sizing:border-box!important}
     #__printRoot .print-header-generated{display:block!important;text-align:center!important;margin:0 0 14px!important;padding:0!important}
-    #__printRoot .print-header-generated h1{display:block!important;margin:0 0 4px!important;font-size:24px!important;line-height:1.3!important;font-weight:800!important;text-align:center!important}
-    #__printRoot .print-header-generated p{display:block!important;margin:0 0 12px!important;font-size:12px!important;line-height:1.4!important;text-align:center!important}
+    #__printRoot .print-header-generated h1{display:block!important;margin:0 0 3px!important;font-size:24px!important;line-height:1.3!important;font-weight:800!important;text-align:center!important}
+    #__printRoot .print-header-generated .print-address{display:block!important;margin:0 0 7px!important;font-size:11px!important;line-height:1.35!important;text-align:center!important}
+    #__printRoot .print-header-generated h2{display:block!important;margin:0 0 14px!important;font-size:18px!important;line-height:1.35!important;font-weight:700!important;text-align:center!important}
     #__printRoot .result-print{display:none!important}
     #__printRoot .personal-print-details{display:block!important;visibility:visible!important;margin-top:14px!important}
     #__printRoot .personal-print-details h4{margin:0 0 8px!important;font-size:15px!important;text-align:left!important}
@@ -361,24 +371,30 @@ function printSection(id){
       #__printRoot .personal-print-details th,#__printRoot .personal-print-details td{padding:5px!important}
     }`;
   document.head.appendChild(style);
+  document.body.classList.add('printing-report');
 
   let cleaned=false;
-  const cleanup=()=>{
+  let wasHidden=false;
+  const handleVisibility=()=>{
+    if(document.visibilityState==='hidden'){wasHidden=true;return}
+    if(wasHidden){setTimeout(cleanup,300);}
+  };
+  function cleanup(){
     if(cleaned)return;cleaned=true;
+    document.removeEventListener('visibilitychange',handleVisibility);
+    document.body.classList.remove('printing-report');
     const r=q('__printRoot');if(r)r.remove();
     const st=q('__printRootStyle');if(st)st.remove();
     window.removeEventListener('afterprint',cleanup);
-  };
-  window.addEventListener('afterprint',cleanup,{once:true});
+  }
+  window.addEventListener('afterprint',cleanup);
+  document.addEventListener('visibilitychange',handleVisibility);
 
   // DOM-এ root বসার পর এক frame অপেক্ষা করে print preview চালু করা হচ্ছে।
   requestAnimationFrame(()=>setTimeout(()=>{
     try{window.print();}
     catch(e){cleanup();showMessage('PDF/Print চালু করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।',false);}
   },120));
-
-  // কিছু Android browser-এ afterprint event না এলে fallback cleanup।
-  setTimeout(cleanup,15000);
 }
 function csvDownload(name,rows){const csv='\ufeff'+rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function downloadAllMembersCSV(){const y=q('allMembersYear').value||'all';const rows=[['ক্রমিক','সদস্যের নাম',...(y==='all'?years:months),'মোট পরিশোধ','মোট বাকি']];members.forEach((m,i)=>rows.push([m.serial_no||i+1,m.name,...(y==='all'?years.map(v=>memberPaid(m,v)):months.map((_,mi)=>payments.filter(p=>isCountablePayment(p)&&String(p.member_id)===String(m.id)&&Number(normalizeYear(p.year))===Number(normalizeYear(y))&&Number(p.month)===mi+1).reduce((s,p)=>s+Number(p.paid_amount||0),0))),memberPaid(m,y),memberDue(m,y)]));csvDownload(`members-${y}.csv`,rows)}
