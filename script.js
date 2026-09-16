@@ -129,7 +129,7 @@ async function load(){
 }
 
 function renderPersonalTotal(){
-  const deposit=totalPaid('all'),profit=totalProfit('all'),expense=totalExpense('all'),remaining=currentFund();
+  const deposit=totalPaid('all'),profit=totalProfit('all'),expense=totalExpense('all'),remaining=deposit+profit-expense;
   q('personalTotalResult').innerHTML=`<div class="report-title"><h3>সংস্থার মোট হিসাব</h3><p>প্রতিষ্ঠার শুরু থেকে সকল বছরের সমন্বিত হিসাব</p></div>
   <div class="summary-grid total-summary">
     <article><span>মোট জমা</span><strong>${money(deposit)}</strong></article>
@@ -189,7 +189,7 @@ function renderAllMembersPreview(){
 }
 
 function renderTotal(){
-  const deposit=totalPaid('all'),profit=totalProfit('all'),expense=totalExpense('all'),remaining=currentFund();
+  const deposit=totalPaid('all'),profit=totalProfit('all'),expense=totalExpense('all'),remaining=deposit+profit-expense;
   q('totalResult').innerHTML=`<div class="report-title"><h3>সংস্থার মোট হিসাব</h3><p>প্রতিষ্ঠার শুরু থেকে সকল বছরের সমন্বিত হিসাব</p></div>
   <div class="summary-grid total-summary">
     <article><span>মোট জমা</span><strong>${money(deposit)}</strong></article>
