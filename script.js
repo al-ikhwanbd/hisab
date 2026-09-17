@@ -313,22 +313,19 @@ function printSection(id){
   const target=q(id);
   if(!target)return;
 
-  // Android/Chrome-এ আলাদা popup window-এ document.write() করে print চালালে
-  // print preview কখনো খালি/অসম্পূর্ণ হওয়ার সম্ভাবনা থাকে। তাই একই document-এর
-  // ইতিমধ্যে-render হওয়া content-এর একটি temporary clone ব্যবহার করে print করা হচ্ছে।
-  // মূল report DOM-এ কোনো স্থায়ী পরিবর্তন করা হচ্ছে না।
+  // Build a dedicated report-only print root directly under <body>.
+  // Android Chrome can snapshot the normal page if the print DOM is nested
+  // inside <main>, so the non-report body children are also hidden inline.
   document.querySelectorAll('.print-section').forEach(x=>x.remove());
-  document.querySelectorAll('.print-header-generated').forEach(x=>x.remove());
 
   const printSectionEl=document.createElement('section');
-  printSectionEl.className='page-section print-section';
+  printSectionEl.id='__printRoot';
+  printSectionEl.className='print-section';
   const clone=target.cloneNode(true);
   clone.removeAttribute('id');
   clone.classList.add('print-target');
   clone.querySelectorAll('.result-print').forEach(x=>x.remove());
-  clone.querySelectorAll('.print-header-generated').forEach(x=>x.remove());
 
-  // ব্যক্তিগত হিসাবের PDF-এ আগে বিস্তারিত, পরে মোট পরিশোধ/বাকি থাকবে।
   if(id==='personalResult'){
     const summary=clone.querySelector('.compact-summary');
     const details=clone.querySelector('.personal-print-details');
@@ -340,23 +337,29 @@ function printSection(id){
   header.innerHTML='<h1>আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ</h1><p>বানিপুর, কেন্দুয়া, নেত্রকোনা, মোমেনশাহী, ঢাকা</p>';
   clone.prepend(header);
   printSectionEl.appendChild(clone);
-  const main=document.querySelector('main.main');
-  if(!main)return;
-  main.appendChild(printSectionEl);
+  document.body.appendChild(printSectionEl);
+
+  const bodyChildren=Array.from(document.body.children);
+  const hiddenChildren=[];
+  bodyChildren.forEach(el=>{
+    if(el===printSectionEl)return;
+    hiddenChildren.push({el,display:el.style.display});
+    el.style.display='none';
+  });
+  printSectionEl.style.display='block';
   document.body.classList.add('printing-report');
 
-  let finished=false;
+  let cleaned=false;
   const cleanup=()=>{
-    if(finished)return;
-    finished=true;
+    if(cleaned)return;
+    cleaned=true;
+    hiddenChildren.forEach(item=>{item.el.style.display=item.display});
     try{printSectionEl.remove()}catch(e){}
     document.body.classList.remove('printing-report');
   };
 
   const waitForReady=async()=>{
-    try{
-      if(document.fonts&&document.fonts.ready)await document.fonts.ready;
-    }catch(e){}
+    try{if(document.fonts&&document.fonts.ready)await document.fonts.ready}catch(e){}
     const images=Array.from(clone.querySelectorAll('img'));
     await Promise.all(images.map(img=>{
       if(img.complete)return Promise.resolve();
@@ -369,20 +372,20 @@ function printSection(id){
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
   };
 
-  window.addEventListener('afterprint',cleanup,{once:true});
   waitForReady().then(()=>{
-    if(finished)return;
-    // Chrome Android-কে layout/paint শেষ করার জন্য সামান্য সময় দেওয়া হচ্ছে।
+    void printSectionEl.offsetHeight;
     setTimeout(()=>{
-      if(finished)return;
       try{
         window.focus();
         window.print();
+        // Keep the print-only DOM alive briefly because Android Chrome may
+        // fire afterprint before its preview snapshot has fully completed.
+        setTimeout(cleanup,12000);
       }catch(e){
         cleanup();
         showMessage('PDF/Print চালু করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।',false);
       }
-    },250);
+    },500);
   });
 }
 

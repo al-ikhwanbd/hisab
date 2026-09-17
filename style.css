@@ -181,12 +181,9 @@ footer{background:#076f45;color:#fff;text-align:center;padding:24px 0;font-size:
   html,body{margin:0!important;padding:0!important}
   body{background:#fff!important}
   body.printing-report > *{display:none!important}
-  body.printing-report > .main{display:block!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important}
-  body.printing-report > .main > .page-section:not(.print-section){display:none!important}
-  body.printing-report .page-section{margin:0!important;padding:0!important;min-height:0!important}
-  body.printing-report .print-section{display:block!important;position:static!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important;box-shadow:none!important;border:0!important}
-  body.printing-report .print-section > :not(.print-target){display:none!important}
-  body.printing-report .print-section .print-target{display:block!important;position:static!important;left:auto!important;top:auto!important;width:100%!important;margin:0!important;padding:10px!important;background:#fff!important;box-shadow:none!important;border:0!important}
+  body.printing-report > #__printRoot{display:block!important;position:static!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important;box-shadow:none!important;border:0!important}
+  body.printing-report #__printRoot .print-section{display:block!important;position:static!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important;box-shadow:none!important;border:0!important}
+  body.printing-report #__printRoot .print-target{display:block!important;position:static!important;left:auto!important;top:auto!important;width:100%!important;margin:0!important;padding:10px!important;background:#fff!important;box-shadow:none!important;border:0!important}
   body.printing-report .result-print{display:none!important}
   body.printing-report .table-wrap{overflow:visible!important}
   body.printing-report table{width:100%!important;font-size:10px!important}
