@@ -35,7 +35,8 @@ function fillYearSelectors(){
   fillYearSelect(q('personalYear'),true);
   fillYearSelect(q('allMembersYear'),true);
   fillYearSelect(q('paymentManageYear'),true);
-  if(q('paymentManageMonth')) q('paymentManageMonth').value='all';
+  if(q('paymentManageMonth')) q('paymentManageMonth').value='';
+  if(q('paymentManageMember')) q('paymentManageMember').value='';
 }
 function memberSort(a,b){
   const sa=Number(a.serial_no), sb=Number(b.serial_no);
@@ -49,6 +50,8 @@ function fillMemberSelectors(){
   const opts=orderedMembers.map((m,i)=>`<option value="${esc(m.id)}">${Number(m.serial_no||i+1).toLocaleString('bn-BD')}. ${esc(m.name)}</option>`).join('');
   q('personalMember').innerHTML='<option value="">-- সদস্য নির্বাচন করুন --</option>'+opts;
   q('payMember').innerHTML='<option value="">-- সদস্য নির্বাচন করুন --</option>'+opts;
+  const manageMember=q('paymentManageMember');
+  if(manageMember){const prev=manageMember.value; manageMember.innerHTML='<option value="">-- সদস্য নির্বাচন করুন --</option>'+opts; if(orderedMembers.some(m=>String(m.id)===String(prev))) manageMember.value=prev;}
 }
 function selectedYears(year){
   if(year==='all'||!year) return years;
@@ -196,7 +199,7 @@ function renderTotal(){
     <article><span>মোট লভ্যাংশ</span><strong>${money(profit)}</strong></article>
     <article><span>মোট বিবিধ খরচ</span><strong>${money(expense)}</strong></article>
     <article class="highlight"><span>অবশিষ্ট তহবিল</span><strong>${money(remaining)}</strong></article>
-  </div>${printButton('totalResult')}`;
+  </div>`;
 }
 function renderProfitExpenseDetails(){
   const profitTotal=totalProfit('all'),expenseTotal=totalExpense('all');
@@ -205,7 +208,7 @@ function renderProfitExpenseDetails(){
   q('profitExpenseDetailsResult').innerHTML=`
     <div class="detail-block profit-detail"><div class="detail-heading"><span>📈</span><h3>লভ্যাংশের বিস্তারিত বিবরণ</h3></div><div class="table-wrap"><table class="detail-table"><thead><tr><th>ক্রমিক</th><th>সাল</th><th class="detail-text">বিবরণ</th><th>পরিমাণ</th></tr></thead><tbody>${profitRows||'<tr><td colspan="4">কোনো লভ্যাংশের তথ্য নেই।</td></tr>'}</tbody><tfoot><tr class="total-row"><td colspan="3">মোট লভ্যাংশ</td><td>${money(profitTotal)}</td></tr></tfoot></table></div></div>
     <div class="detail-block expense-detail"><div class="detail-heading"><span>🧾</span><h3>খরচের বিস্তারিত বিবরণ</h3></div><div class="table-wrap"><table class="detail-table"><thead><tr><th>ক্রমিক</th><th>সাল</th><th>তারিখ</th><th class="detail-text">বিবরণ</th><th>পরিমাণ</th></tr></thead><tbody>${expenseRows||'<tr><td colspan="5">কোনো খরচের তথ্য নেই।</td></tr>'}</tbody><tfoot><tr class="total-row"><td colspan="4">মোট খরচ</td><td>${money(expenseTotal)}</td></tr></tfoot></table></div></div>
-    ${printButton('profitExpenseDetailsResult')}`;
+    `;
 }
 function renderFund(){
   const deposit=totalPaid('all'),profit=totalProfit('all'),expense=totalExpense('all'),allocated=totalAssets('all'),remaining=currentFund();
@@ -214,7 +217,7 @@ function renderFund(){
   <div class="detail-block fund-detail"><div class="detail-heading"><span>🏦</span><h3>তহবিল ব্যবহারের খাতসমূহ</h3></div><div class="table-wrap"><table class="detail-table"><thead><tr><th>ক্রমিক</th><th>সাল</th><th>খাত</th><th class="detail-text">বিস্তারিত</th><th>পরিমাণ</th><th>তারিখ</th></tr></thead><tbody>${body||'<tr><td colspan="6">এখনও কোনো খাত যোগ করা হয়নি।</td></tr>'}</tbody><tfoot><tr class="total-row"><td colspan="4">বিভিন্ন খাতে ব্যবহার করা মোট</td><td>${money(allocated)}</td><td></td></tr></tfoot></table></div></div>
   <div class="detail-block fund-summary-detail"><div class="detail-heading"><span>💰</span><h3>তহবিলের সংক্ষিপ্ত হিসাব</h3></div><div class="table-wrap"><table class="detail-table fund-summary-table"><tbody>
     <tr><th>মোট অবশিষ্ট তহবিল</th><td>${money(remainingFund())}</td></tr><tr><th>বিভিন্ন খাতে ব্যবহার</th><td>${money(allocated)}</td></tr><tr class="highlight-row"><th>বর্তমান অবশিষ্ট তহবিল</th><td><b>${money(currentFund())}</b></td></tr>
-  </tbody></table></div></div>${printButton('fundResult')}`;
+  </tbody></table></div></div>`;
 }
 function renderNotices(){
   const html=notices.map(n=>`<article class="notice"><h3>${esc(n.title)}</h3><p>${esc(n.description)}</p><small>${esc(n.publish_date||'')}</small></article>`).join('');
@@ -278,19 +281,15 @@ function renderAdminData(){
   q('adminMembers').innerHTML=`<table><thead><tr><th>ক্রম</th><th class="name">নাম</th><th>মোবাইল</th><th>অ্যাকশন</th></tr></thead><tbody>`+orderedMembers.map((m,i)=>`<tr><td>${Number(m.serial_no||i+1).toLocaleString('bn-BD')}</td><td class="name">${esc(m.name)}</td><td>${esc(m.mobile||'-')}</td><td class="row-actions"><button class="small-btn edit" onclick="editMember('${esc(m.id)}')">Edit</button><button class="small-btn del" onclick="del('members','${esc(m.id)}')">Delete</button></td></tr>`).join('')+`</tbody></table>`;
   const selectedYear=q('paymentManageYear').value||'all';
   const selectedMonth=q('paymentManageMonth')?.value||'all';
-  const search=(q('paymentManageSearch')?.value||'').trim().toLowerCase();
+  const selectedMember=q('paymentManageMember')?.value||'';
   const paymentRows=payments.filter(p=>{
     // ০ টাকার placeholder record database-এ থাকবে, কিন্তু Excel-এর প্রকৃত জমার
     // তালিকার সঙ্গে মিল রেখে Admin management-এ শুধু বাস্তব জমা দেখানো হবে।
     if(Number(p.paid_amount||0)<=0)return false;
     if(selectedYear!=='all' && String(p.year)!==String(selectedYear))return false;
     if(selectedMonth!=='all' && Number(p.month)!==Number(selectedMonth))return false;
-    if(!search)return true;
-    const m=members.find(x=>String(x.id)===String(p.member_id));
-    const serial=String(m?.serial_no??'');
-    const name=String(m?.name??'').toLowerCase();
-    const mobile=String(m?.mobile??'').toLowerCase();
-    return serial.includes(search)||name.includes(search)||mobile.includes(search);
+    if(selectedMember && String(p.member_id)!==String(selectedMember))return false;
+    return true;
   }).slice().sort((a,b)=>{
     const ma=members.find(m=>String(m.id)===String(a.member_id))||{};
     const mb=members.find(m=>String(m.id)===String(b.member_id))||{};
@@ -394,7 +393,7 @@ function downloadAssetsCSV(){csvDownload('fund-assets.csv',[['বছর','খা
 document.addEventListener('DOMContentLoaded',()=>{
   q('footerYear').textContent=new Date().getFullYear();
   q('menuBtn').addEventListener('click',()=>setMenu(true));q('menuClose').addEventListener('click',()=>setMenu(false));q('menuOverlay').addEventListener('click',()=>setMenu(false));document.querySelectorAll('#mobileMenu a').forEach(a=>a.addEventListener('click',()=>setMenu(false)));window.addEventListener('hashchange',route);
-  q('personalForm').addEventListener('submit',e=>{e.preventDefault();renderPersonal()});q('membersForm').addEventListener('submit',e=>{e.preventDefault();renderAllMembers()});q('paymentManageYear').addEventListener('change',()=>renderAdminData());q('paymentManageMonth').addEventListener('change',()=>renderAdminData());q('paymentManageSearch').addEventListener('input',()=>renderAdminData());
+  q('personalForm').addEventListener('submit',e=>{e.preventDefault();renderPersonal()});q('membersForm').addEventListener('submit',e=>{e.preventDefault();renderAllMembers()});q('paymentManageYear').addEventListener('change',()=>renderAdminData());q('paymentManageMonth').addEventListener('change',()=>renderAdminData());q('paymentManageMember').addEventListener('change',()=>renderAdminData());
   q('loginBtn').addEventListener('click',login);q('logoutBtn').addEventListener('click',logout);
   q('addOpen').addEventListener('click',()=>{const value=q('addSelect').value;if(!value){showMessage('আগে একটি যুক্ত করার বিষয় নির্বাচন করুন।',false);return}openForm(value);q('addArea').scrollIntoView({behavior:'smooth',block:'start'})});
   q('manageOpen').addEventListener('click',()=>{const value=q('manageSelect').value;if(!value){showMessage('আগে একটি সম্পাদনার বিষয় নির্বাচন করুন।',false);return}openManagement(value);q('managementArea').scrollIntoView({behavior:'smooth',block:'start'})});
