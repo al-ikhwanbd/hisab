@@ -392,8 +392,21 @@ function printSection(id){
 function createPdfReportElement(title,subtitle,body,landscape=false){
   const wrap=document.createElement('div');
   wrap.className=`pdf-download-report ${landscape?'pdf-landscape':'pdf-portrait'}`;
-  wrap.style.position='absolute';wrap.style.left='0';wrap.style.top='0';wrap.style.zIndex='2147483647';wrap.style.opacity='1';wrap.style.pointerEvents='none';wrap.style.display='block';
-  wrap.style.width=landscape?'1080px':'760px';wrap.style.background='#fff';wrap.style.color='#17221f';
+  wrap.style.position='fixed';
+  wrap.style.left='0';
+  wrap.style.top='0';
+  wrap.style.margin='0';
+  wrap.style.padding=landscape?'20px 24px':'26px 30px';
+  wrap.style.zIndex='2147483647';
+  wrap.style.opacity='1';
+  wrap.style.visibility='visible';
+  wrap.style.display='block';
+  wrap.style.overflow='visible';
+  wrap.style.boxSizing='border-box';
+  wrap.style.width=landscape?'1123px':'794px';
+  wrap.style.minHeight=landscape?'794px':'1123px';
+  wrap.style.background='#fff';
+  wrap.style.color='#17221f';
   wrap.innerHTML=`<div class="pdf-head"><h1>আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ</h1><p>বানিপুর, কেন্দুয়া, নেত্রকোনা, মোমেনশাহী, ঢাকা</p></div><div class="pdf-title"><h2>${esc(title)}</h2><p>${esc(subtitle)}</p></div>${body}`;
   document.body.appendChild(wrap);
   return wrap;
@@ -403,13 +416,35 @@ async function saveReportAsPdf({filename,title,subtitle,body,landscape=false}){
     showMessage('PDF তৈরির ব্যবস্থা লোড হয়নি। ইন্টারনেট সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।',false);return;
   }
   const el=createPdfReportElement(title,subtitle,body,landscape);
+  const originalChildren=[...document.body.children].filter(x=>x!==el);
+  const originalStyles=new Map();
   try{
+    // Keep the PDF report as the only visible document while html2canvas captures it.
+    originalChildren.forEach(node=>{
+      originalStyles.set(node,{visibility:node.style.visibility,display:node.style.display});
+      node.style.visibility='hidden';
+    });
+    document.documentElement.style.background='#fff';
+    document.body.style.background='#fff';
+    document.body.style.margin='0';
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     const options={
       margin:landscape?[18,18,18,18]:[24,24,24,24],
       filename,
       image:{type:'jpeg',quality:0.98},
-      html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',scrollX:0,scrollY:0,windowWidth:landscape?1080:760,windowHeight:Math.max(window.innerHeight,el.scrollHeight,1200)},
+      html2canvas:{
+        scale:2,
+        useCORS:true,
+        allowTaint:false,
+        backgroundColor:'#ffffff',
+        scrollX:0,
+        scrollY:0,
+        x:0,
+        y:0,
+        width:landscape?1123:794,
+        windowWidth:landscape?1123:794,
+        windowHeight:Math.max(window.innerHeight,el.scrollHeight,1200)
+      },
       jsPDF:{unit:'pt',format:'a4',orientation:landscape?'landscape':'portrait',compress:true},
       pagebreak:{mode:['css','legacy'],avoid:['tr','.pdf-no-break']}
     };
@@ -418,6 +453,10 @@ async function saveReportAsPdf({filename,title,subtitle,body,landscape=false}){
     console.error('PDF generation failed:',err);
     showMessage('PDF তৈরি করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।',false);
   }finally{
+    originalChildren.forEach(node=>{
+      const old=originalStyles.get(node);
+      if(old){node.style.visibility=old.visibility;node.style.display=old.display;}
+    });
     el.remove();
   }
 }
