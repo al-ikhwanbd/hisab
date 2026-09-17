@@ -392,7 +392,7 @@ function printSection(id){
 function createPdfReportElement(title,subtitle,body,landscape=false){
   const wrap=document.createElement('div');
   wrap.className=`pdf-download-report ${landscape?'pdf-landscape':'pdf-portrait'}`;
-  wrap.style.position='fixed';wrap.style.left='0';wrap.style.top='0';wrap.style.zIndex='2147483647';wrap.style.opacity='1';wrap.style.pointerEvents='none';
+  wrap.style.position='absolute';wrap.style.left='0';wrap.style.top='0';wrap.style.zIndex='2147483647';wrap.style.opacity='1';wrap.style.pointerEvents='none';wrap.style.display='block';
   wrap.style.width=landscape?'1080px':'760px';wrap.style.background='#fff';wrap.style.color='#17221f';
   wrap.innerHTML=`<div class="pdf-head"><h1>আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ</h1><p>বানিপুর, কেন্দুয়া, নেত্রকোনা, মোমেনশাহী, ঢাকা</p></div><div class="pdf-title"><h2>${esc(title)}</h2><p>${esc(subtitle)}</p></div>${body}`;
   document.body.appendChild(wrap);
@@ -409,7 +409,7 @@ async function saveReportAsPdf({filename,title,subtitle,body,landscape=false}){
       margin:landscape?[18,18,18,18]:[24,24,24,24],
       filename,
       image:{type:'jpeg',quality:0.98},
-      html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',scrollX:0,scrollY:0,windowWidth:landscape?1080:760,windowHeight:Math.max(window.innerHeight,el.scrollHeight)},
+      html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',scrollX:0,scrollY:0,windowWidth:landscape?1080:760,windowHeight:Math.max(window.innerHeight,el.scrollHeight,1200)},
       jsPDF:{unit:'pt',format:'a4',orientation:landscape?'landscape':'portrait',compress:true},
       pagebreak:{mode:['css','legacy'],avoid:['tr','.pdf-no-break']}
     };
