@@ -89,6 +89,9 @@ td.name,th.name{text-align:left;white-space:normal}
 .bottom-tools{text-align:center;margin:17px 0 4px}
 .print-row{display:flex;justify-content:center;padding:20px 0 0}
 .print-btn{border:0;background:var(--green);color:#fff;border-radius:11px;padding:12px 24px;font:inherit;font-weight:800;cursor:pointer}
+.download-btn{border:0;background:var(--green);color:#fff;border-radius:11px;padding:12px 24px;font:inherit;font-weight:800;cursor:pointer}
+.result-download{display:flex;justify-content:center;margin:18px 0 2px}
+.result-download .download-btn{margin:0}
 .login-card{max-width:520px;margin:5px auto;padding:22px;background:#f7fbf9;border:1px solid #dfeae5;border-radius:16px}
 .login-card h3{margin:0;font-size:22px}
 .login-fields{display:grid;gap:13px;margin-top:14px}
