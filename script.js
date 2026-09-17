@@ -392,7 +392,7 @@ function printSection(id){
 function createPdfReportElement(title,subtitle,body,landscape=false){
   const wrap=document.createElement('div');
   wrap.className=`pdf-download-report ${landscape?'pdf-landscape':'pdf-portrait'}`;
-  wrap.style.position='fixed';wrap.style.left='-100000px';wrap.style.top='0';wrap.style.zIndex='-1';
+  wrap.style.position='fixed';wrap.style.left='0';wrap.style.top='0';wrap.style.zIndex='99999';wrap.style.opacity='0.01';wrap.style.pointerEvents='none';
   wrap.style.width=landscape?'1080px':'760px';wrap.style.background='#fff';wrap.style.color='#17221f';
   wrap.innerHTML=`<div class="pdf-head"><h1>আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ</h1><p>বানিপুর, কেন্দুয়া, নেত্রকোনা, মোমেনশাহী, ঢাকা</p></div><div class="pdf-title"><h2>${esc(title)}</h2><p>${esc(subtitle)}</p></div>${body}`;
   document.body.appendChild(wrap);
