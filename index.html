@@ -99,11 +99,39 @@
       <p class="muted">অনুমোদিত ইমেইল ও পাসওয়ার্ড দিয়ে প্রবেশ করুন।</p>
       <div class="login-fields"><input id="adminEmail" type="email" autocomplete="username" placeholder="ইমেইল"><input id="adminPassword" type="password" autocomplete="current-password" placeholder="পাসওয়ার্ড"></div>
       <button class="btn btn-primary full" id="loginBtn">🔐 লগইন</button>
+      <button type="button" class="btn btn-light full" id="forgotPasswordBtn">🔑 পাসওয়ার্ড ভুলে গেছেন?</button>
       <div id="loginMsg" class="message"></div>
+      <div id="forgotBox" class="account-box" hidden>
+        <h4>🔑 পাসওয়ার্ড পুনরুদ্ধার</h4>
+        <p class="muted">আপনার অ্যাডমিন ইমেইল লিখে রিসেট লিংক নিন।</p>
+        <input id="forgotEmail" type="email" autocomplete="email" placeholder="অ্যাডমিন ইমেইল">
+        <button type="button" class="btn btn-primary full" id="sendResetBtn">📩 রিসেট লিংক পাঠান</button>
+        <div id="forgotMsg" class="message"></div>
+      </div>
+    </div>
+
+    <div id="passwordResetBox" class="login-card" hidden>
+      <h3>🔑 নতুন পাসওয়ার্ড সেট করুন</h3>
+      <p class="muted">আপনার নতুন পাসওয়ার্ড লিখুন।</p>
+      <div class="login-fields">
+        <input id="resetPassword" type="password" autocomplete="new-password" placeholder="নতুন পাসওয়ার্ড">
+        <input id="resetPasswordConfirm" type="password" autocomplete="new-password" placeholder="নতুন পাসওয়ার্ড আবার লিখুন">
+      </div>
+      <button type="button" class="btn btn-primary full" id="resetPasswordBtn">🔐 পাসওয়ার্ড পরিবর্তন করুন</button>
+      <div id="resetMsg" class="message"></div>
     </div>
 
     <div id="adminBox" hidden>
       <div class="adminbar"><div><b id="adminUser"></b><span class="admin-badge">ADMIN</span></div><button class="btn danger" id="logoutBtn">লগআউট</button></div>
+      <div class="account-box admin-account-box">
+        <h4>⚙️ অ্যাডমিন অ্যাকাউন্ট</h4>
+        <div class="muted account-current">বর্তমান ইমেইল: <b id="currentAdminEmail"></b></div>
+        <div class="account-fields">
+          <input id="newAdminEmail" type="email" autocomplete="email" placeholder="নতুন ইমেইল">
+          <button type="button" class="btn btn-light" id="changeAdminEmailBtn">📧 ইমেইল পরিবর্তন</button>
+        </div>
+        <div id="accountMsg" class="message"></div>
+      </div>
 
       <h2 class="choose-title">যুক্ত করার অপশন বাছাই করুন</h2>
       <div class="admin-select-row">
@@ -166,6 +194,6 @@
   <div class="container">© <span id="footerYear"></span> আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ<div class="footer-sub">সকল অধিকার সংরক্ষিত</div></div>
 </footer>
 <script src="supabase-config.js"></script>
-<script src="script.js?v=37"></script>
+<script src="script.js?v=38"></script>
 </body>
 </html>
