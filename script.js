@@ -389,76 +389,21 @@ function printSection(id){
   });
 }
 
-function createPdfReportElement(title,subtitle,body,landscape=false){
-  const wrap=document.createElement('div');
-  wrap.className=`pdf-download-report ${landscape?'pdf-landscape':'pdf-portrait'}`;
-  wrap.style.position='fixed';
-  wrap.style.left='0';
-  wrap.style.top='0';
-  wrap.style.margin='0';
-  wrap.style.padding=landscape?'20px 24px':'26px 30px';
-  wrap.style.zIndex='2147483647';
-  wrap.style.opacity='1';
-  wrap.style.visibility='visible';
-  wrap.style.display='block';
-  wrap.style.overflow='visible';
-  wrap.style.boxSizing='border-box';
-  wrap.style.width=landscape?'1123px':'794px';
-  wrap.style.minHeight=landscape?'794px':'1123px';
-  wrap.style.background='#fff';
-  wrap.style.color='#17221f';
-  wrap.innerHTML=`<div class="pdf-head"><h1>আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ</h1><p>বানিপুর, কেন্দুয়া, নেত্রকোনা, মোমেনশাহী, ঢাকা</p></div><div class="pdf-title"><h2>${esc(title)}</h2><p>${esc(subtitle)}</p></div>${body}`;
-  document.body.appendChild(wrap);
-  return wrap;
+function reportShell(title,subtitle,body,landscape=false){
+  return `<!doctype html><html lang="bn"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>
+  *{box-sizing:border-box}body{margin:0;padding:24px;background:#fff;color:#17221f;font-family:Arial,"Noto Sans Bengali","Noto Sans",sans-serif}
+  .report{max-width:${landscape?'1400px':'900px'};margin:0 auto}.head{text-align:center;margin-bottom:18px}.head h1{margin:0;font-size:28px;font-weight:800}.head p{margin:5px 0 0;font-size:13px;color:#65736e}.title{text-align:center;margin-bottom:18px}.title h2{margin:0 0 5px;font-size:22px}.title p{margin:0;font-size:13px;color:#65736e}
+  .meta{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:14px}.meta>div{border:1px solid #d6e2dd;padding:8px 10px;border-radius:6px}.meta span{display:block;font-size:11px;color:#687772}.meta strong{display:block;margin-top:2px;font-size:14px}
+  .table-wrap{width:100%;overflow-x:auto}table{width:100%;border-collapse:collapse;background:#fff}th,td{border:1px solid #c9d6d1;text-align:center;padding:6px 5px;font-size:12px;line-height:1.3;white-space:nowrap}th{font-weight:800;background:#f0f6f3}td.name,th.name{text-align:left;white-space:nowrap}.total-row td{font-weight:800;background:#f6faf8}
+  .summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.summary>div{border:1px solid #cfded8;border-radius:7px;padding:9px;text-align:center;background:#f7fbf9}.summary span{display:block;font-size:11px;color:#63716c}.summary strong{display:block;margin-top:3px;font-size:17px}
+  .download-note{margin-top:16px;text-align:center;font-size:11px;color:#687772}@media(max-width:600px){body{padding:12px}.head h1{font-size:22px}.title h2{font-size:18px}.meta{grid-template-columns:1fr}.report{max-width:none}th,td{font-size:11px;padding:5px 4px}}
+</style></head><body><main class="report"><div class="head"><h1>আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ</h1><p>বানিপুর, কেন্দুয়া, নেত্রকোনা, মোমেনশাহী, ঢাকা</p></div><div class="title"><h2>${esc(title)}</h2><p>${esc(subtitle)}</p></div>${body}</main></body></html>`;
 }
-async function saveReportAsPdf({filename,title,subtitle,body,landscape=false}){
-  if(typeof html2pdf!=='function'){
-    showMessage('PDF তৈরির ব্যবস্থা লোড হয়নি। ইন্টারনেট সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।',false);return;
-  }
-  const el=createPdfReportElement(title,subtitle,body,landscape);
-  const originalChildren=[...document.body.children].filter(x=>x!==el);
-  const originalStyles=new Map();
-  try{
-    // Keep the PDF report as the only visible document while html2canvas captures it.
-    originalChildren.forEach(node=>{
-      originalStyles.set(node,{visibility:node.style.visibility,display:node.style.display});
-      node.style.visibility='hidden';
-    });
-    document.documentElement.style.background='#fff';
-    document.body.style.background='#fff';
-    document.body.style.margin='0';
-    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-    const options={
-      margin:landscape?[18,18,18,18]:[24,24,24,24],
-      filename,
-      image:{type:'jpeg',quality:0.98},
-      html2canvas:{
-        scale:2,
-        useCORS:true,
-        allowTaint:false,
-        backgroundColor:'#ffffff',
-        scrollX:0,
-        scrollY:0,
-        x:0,
-        y:0,
-        width:landscape?1123:794,
-        windowWidth:landscape?1123:794,
-        windowHeight:Math.max(window.innerHeight,el.scrollHeight,1200)
-      },
-      jsPDF:{unit:'pt',format:'a4',orientation:landscape?'landscape':'portrait',compress:true},
-      pagebreak:{mode:['css','legacy'],avoid:['tr','.pdf-no-break']}
-    };
-    await html2pdf().set(options).from(el).save();
-  }catch(err){
-    console.error('PDF generation failed:',err);
-    showMessage('PDF তৈরি করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।',false);
-  }finally{
-    originalChildren.forEach(node=>{
-      const old=originalStyles.get(node);
-      if(old){node.style.visibility=old.visibility;node.style.display=old.display;}
-    });
-    el.remove();
-  }
+function downloadHtmlFile(filename,html){
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 function downloadPersonalReport(){
   const y=q('personalYear').value,id=q('personalMember').value;
@@ -471,8 +416,8 @@ function downloadPersonalReport(){
   })).join('');
   const title=`${m.name} — ব্যক্তিগত হিসাব`;
   const subtitle=y==='all'?'সকল বছরের বিস্তারিত মাসভিত্তিক হিসাব':`${y} সালের বিস্তারিত মাসভিত্তিক হিসাব`;
-  const body=`<div class="pdf-person-meta"><div><span>সদস্যের নাম</span><strong>${esc(m.name)}</strong></div><div><span>সাল</span><strong>${esc(y==='all'?'সকল বছর':y)}</strong></div></div><div class="table-wrap"><table><thead><tr><th>সাল</th><th>মাস</th><th>পরিশোধ</th><th>বাকি</th></tr></thead><tbody>${detailRows}</tbody></table></div><div class="pdf-summary"><div><span>মোট পরিশোধ</span><strong>${money(memberPaid(m,y))}</strong></div><div><span>মোট বাকি</span><strong>${money(memberDue(m,y))}</strong></div></div>`;
-  saveReportAsPdf({filename:`personal-${String(y).replace(/[^0-9a-zA-Z_-]/g,'')}-${String(m.name).replace(/[^\u0980-\u09FFa-zA-Z0-9_-]+/g,'-')}.pdf`,title,subtitle,body,landscape:false});
+  const body=`<div class="meta"><div><span>সদস্যের নাম</span><strong>${esc(m.name)}</strong></div><div><span>সাল</span><strong>${esc(y==='all'?'সকল বছর':y)}</strong></div></div><div class="table-wrap"><table><thead><tr><th>সাল</th><th>মাস</th><th>পরিশোধ</th><th>বাকি</th></tr></thead><tbody>${detailRows}</tbody></table></div><div class="summary"><div><span>মোট পরিশোধ</span><strong>${money(memberPaid(m,y))}</strong></div><div><span>মোট বাকি</span><strong>${money(memberDue(m,y))}</strong></div></div>`;
+  downloadHtmlFile(`personal-${String(y).replace(/[^0-9a-zA-Z_-]/g,'')}-${String(m.name).replace(/[^\u0980-\u09FFa-zA-Z0-9_-]+/g,'-')}.html`,reportShell(title,subtitle,body,false));
 }
 function downloadAllMembersReport(){
   const y=q('allMembersYear').value||'all';
@@ -481,15 +426,14 @@ function downloadAllMembersReport(){
     let rows='';
     members.forEach((m,i)=>{rows+=`<tr><td>${Number(m.serial_no||i+1).toLocaleString('bn-BD')}</td><td class="name">${esc(m.name)}</td>`+years.map(v=>`<td>${memberPaid(m,v)>0?Number(memberPaid(m,v)).toLocaleString('bn-BD'):''}</td>`).join('')+`<td>${money(memberPaid(m,'all'))}</td><td>${money(memberDue(m,'all'))}</td></tr>`});
     const totalCells=years.map(v=>`<td>${totalPaid(v)>0?Number(totalPaid(v)).toLocaleString('bn-BD'):''}</td>`).join('');
-    const body=`<div class="table-wrap"><table class="pdf-all-members"><thead><tr><th>ক্রমিক</th><th class="name">সদস্যের নাম</th>${years.map(v=>`<th>${esc(v)}</th>`).join('')}<th>মোট পরিশোধ</th><th>মোট বাকি</th></tr></thead><tbody>${rows}</tbody><tfoot><tr class="total-row"><td colspan="2">সর্বমোট</td>${totalCells}<td>${money(totalPaid('all'))}</td><td>${money(totalDue('all'))}</td></tr></tfoot></table></div>`;
-    saveReportAsPdf({filename:'all-members-all-years.pdf',title:'সকল বছরের সকল সদস্যদের হিসাব',subtitle:'সকল বছরের বিস্তারিত হিসাব',body,landscape:true});
-    return;
+    const body=`<div class="table-wrap"><table><thead><tr><th>ক্রমিক</th><th class="name">সদস্যের নাম</th>${years.map(v=>`<th>${esc(v)}</th>`).join('')}<th>মোট পরিশোধ</th><th>মোট বাকি</th></tr></thead><tbody>${rows}</tbody><tfoot><tr class="total-row"><td colspan="2">সর্বমোট</td>${totalCells}<td>${money(totalPaid('all'))}</td><td>${money(totalDue('all'))}</td></tr></tfoot></table></div>`;
+    downloadHtmlFile('all-members-all-years.html',reportShell('সকল বছরের সকল সদস্যদের হিসাব','সকল বছরের বিস্তারিত হিসাব',body,true));return;
   }
   let rows='';
   members.forEach((m,i)=>{rows+=`<tr><td>${Number(m.serial_no||i+1).toLocaleString('bn-BD')}</td><td class="name">${esc(m.name)}</td>`+months.map((_,mi)=>`<td>${paidCell(m,y,mi+1)}</td>`).join('')+`<td>${money(memberPaid(m,y))}</td><td>${money(memberDue(m,y))}</td></tr>`});
   const monthTotals=months.map((_,mi)=>{const x=payments.filter(p=>isCountablePayment(p)&&Number(normalizeYear(p.year))===Number(normalizeYear(y))&&Number(p.month)===mi+1).reduce((s,p)=>s+Number(p.paid_amount||0),0);return `<td>${x>0?Number(x).toLocaleString('bn-BD'):''}</td>`}).join('');
-  const body=`<div class="table-wrap"><table class="pdf-all-members"><thead><tr><th>ক্রমিক</th><th class="name">সদস্যের নাম</th>${months.map(m=>`<th>${m}</th>`).join('')}<th>মোট পরিশোধ</th><th>মোট বাকি</th></tr></thead><tbody>${rows}</tbody><tfoot><tr class="total-row"><td colspan="2">সর্বমোট</td>${monthTotals}<td>${money(totalPaid(y))}</td><td>${money(totalDue(y))}</td></tr></tfoot></table></div>`;
-  saveReportAsPdf({filename:`all-members-${y}.pdf`,title:`${y} সালের সকল সদস্যদের হিসাব`,subtitle:'প্রতি মাসে শুধু পরিশোধের পরিমাণ দেখানো হয়েছে',body,landscape:true});
+  const body=`<div class="table-wrap"><table><thead><tr><th>ক্রমিক</th><th class="name">সদস্যের নাম</th>${months.map(m=>`<th>${m}</th>`).join('')}<th>মোট পরিশোধ</th><th>মোট বাকি</th></tr></thead><tbody>${rows}</tbody><tfoot><tr class="total-row"><td colspan="2">সর্বমোট</td>${monthTotals}<td>${money(totalPaid(y))}</td><td>${money(totalDue(y))}</td></tr></tfoot></table></div>`;
+  downloadHtmlFile(`all-members-${y}.html`,reportShell(`${y} সালের সকল সদস্যদের হিসাব`,'প্রতি মাসে শুধু পরিশোধের পরিমাণ দেখানো হয়েছে',body,true));
 }
 function csvDownload(name,rows){const csv='\ufeff'+rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function downloadAllMembersCSV(){const y=q('allMembersYear').value||'all';const rows=[['ক্রমিক','সদস্যের নাম',...(y==='all'?years:months),'মোট পরিশোধ','মোট বাকি']];members.forEach((m,i)=>rows.push([m.serial_no||i+1,m.name,...(y==='all'?years.map(v=>memberPaid(m,v)):months.map((_,mi)=>payments.filter(p=>isCountablePayment(p)&&String(p.member_id)===String(m.id)&&Number(normalizeYear(p.year))===Number(normalizeYear(y))&&Number(p.month)===mi+1).reduce((s,p)=>s+Number(p.paid_amount||0),0))),memberPaid(m,y),memberDue(m,y)]));csvDownload(`members-${y}.csv`,rows)}
