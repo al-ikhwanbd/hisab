@@ -8,10 +8,21 @@ const q=id=>document.getElementById(id);
 let members=[],payments=[],profits=[],expenses=[],assets=[],notices=[],adminUser=null,years=[];
 // বার্ষিক হিসাবের মূল নিয়ম: প্রতি সদস্যের জন্য বছরে ১২ মাস × ৳৫০০ = ৳৬,০০০।
 // বকেয়া সবসময় বার্ষিক মোট পাওনা থেকে প্রকৃত পরিশোধ বাদ দিয়ে অটোমেটিক গণনা হবে।
-const MONTHLY_REQUIRED=500;
+const DEFAULT_MONTHLY_REQUIRED=500;
+let MONTHLY_REQUIRED=DEFAULT_MONTHLY_REQUIRED;
 const MONTHS_PER_YEAR=12;
-const YEARLY_REQUIRED=MONTHLY_REQUIRED*MONTHS_PER_YEAR;
+const YEARLY_REQUIRED=()=>MONTHLY_REQUIRED*MONTHS_PER_YEAR;
+let dividendVisibility={};
 
+function detectMonthlyRequired(){
+  const first=payments
+    .filter(p=>Number(p.paid_amount||0)>0)
+    .slice()
+    .sort((a,b)=>Number(normalizeYear(a.year))-Number(normalizeYear(b.year))||Number(a.month)-Number(b.month))[0];
+  const detected=Number(first?.required_amount||0);
+  MONTHLY_REQUIRED=detected>0?detected:DEFAULT_MONTHLY_REQUIRED;
+  return MONTHLY_REQUIRED;
+}
 function getYears(){
   const found=new Set();
   const addYear=y=>{
@@ -78,7 +89,7 @@ function memberPaid(m,year){
     .reduce((s,p)=>s+Number(p.paid_amount||0),0);
 }
 function memberRequired(m,year){
-  return selectedYears(year).length * YEARLY_REQUIRED;
+  return selectedYears(year).length * YEARLY_REQUIRED();
 }
 function memberDue(m,year){
   const paid=memberPaid(m,year);
@@ -89,12 +100,55 @@ function totalPaid(year){
   return payments.filter(p=>isCountablePayment(p) && (target===null||normalizeYear(p.year)===target))
     .reduce((s,p)=>s+Number(p.paid_amount||0),0);
 }
-function totalRequired(year){return members.length*selectedYears(year).length*YEARLY_REQUIRED}
+function totalRequired(year){return members.length*selectedYears(year).length*YEARLY_REQUIRED()}
 function totalDue(year){return Math.max(totalRequired(year)-totalPaid(year),0)}
 function totalExpense(year){return expenses.filter(e=>!year||year==='all'||Number(normalizeYear(e.year))===Number(normalizeYear(year))).reduce((s,e)=>s+Number(e.amount||0),0)}
 function totalProfit(year){return profits.filter(p=>!year||year==='all'||Number(normalizeYear(p.year))===Number(normalizeYear(year))).reduce((s,p)=>s+Number(p.total_profit||0),0)}
 function totalAssets(year){return assets.filter(a=>!year||year==='all'||Number(normalizeYear(a.year))===Number(normalizeYear(year))).reduce((s,a)=>s+Number(a.amount||0),0)}
 function remainingFund(){return totalPaid('all')+totalProfit('all')-totalExpense('all')}
+function remainingDividend(){return Math.max(totalProfit('all')-totalExpense('all'),0)}
+function memberDividend(m){
+  const total=totalPaid('all'),remaining=remainingDividend();
+  if(total<=0||remaining<=0)return 0;
+  return remaining*(memberPaid(m,'all')/total);
+}
+function isDividendPublic(memberId){
+  return !!dividendVisibility[String(memberId)];
+}
+function canViewDividend(memberId){
+  return !!adminUser || isDividendPublic(memberId);
+}
+async function loadDividendVisibility(){
+  dividendVisibility={};
+  if(!sb)return;
+  const {data,error}=await sb.from('member_dividend_visibility').select('member_id,is_public');
+  if(error){console.warn('member_dividend_visibility load:',error.message);return;}
+  (data||[]).forEach(row=>{dividendVisibility[String(row.member_id)]=!!row.is_public;});
+}
+async function setDividendVisibility(memberId,isPublic){
+  const {error}=await sb.from('member_dividend_visibility').upsert(
+    {member_id:memberId,is_public:!!isPublic,updated_at:new Date().toISOString()},
+    {onConflict:'member_id'}
+  );
+  if(error){showMessage('লভ্যাংশের Public/Hidden সংরক্ষণ করা যায়নি। আগে member_dividend_visibility টেবিল ও RLS সেটিংস তৈরি করুন।',false);return false;}
+  dividendVisibility[String(memberId)]=!!isPublic;
+  renderAdminData();
+  showMessage(isPublic?'লভ্যাংশ Public করা হয়েছে ✓':'লভ্যাংশ Hidden করা হয়েছে ✓',true);
+  return true;
+}
+async function setAllDividendVisibility(isPublic){
+  const ids=members.map(m=>m.id);
+  if(!ids.length){showMessage('কোনো সক্রিয় সদস্য পাওয়া যায়নি।',false);return;}
+  const rows=ids.map(id=>({member_id:id,is_public:!!isPublic,updated_at:new Date().toISOString()}));
+  const {error}=await sb.from('member_dividend_visibility').upsert(rows,{onConflict:'member_id'});
+  if(error){showMessage('সব সদস্যের লভ্যাংশ Public/Hidden করা যায়নি। আগে member_dividend_visibility টেবিল ও RLS সেটিংস তৈরি করুন।',false);return;}
+  ids.forEach(id=>{dividendVisibility[String(id)]=!!isPublic;});
+  renderAdminData();
+  showMessage(isPublic?'সকল সদস্যের লভ্যাংশ Public করা হয়েছে ✓':'সকল সদস্যের লভ্যাংশ Hide করা হয়েছে ✓',true);
+}
+async function toggleDividendVisibility(memberId){
+  await setDividendVisibility(memberId,!isDividendPublic(memberId));
+}
 function currentFund(){return remainingFund()-totalAssets('all')}
 function downloadButton(kind){return `<div class="result-download"><button class="download-btn" type="button" onclick="${kind==='personal'?'downloadPersonalReport()':'downloadAllMembersReport()'}">⬇️ বিস্তারিত হিসাব ডাউনলোড</button></div>`}
 
@@ -126,6 +180,8 @@ async function load(){
   const errors=[m,p,pr,e,a,n].filter(x=>x.error);
   if(errors.length){console.error(...errors.map(x=>x.error));q('totalResult').innerHTML='<div class="empty-state">ডাটা লোড করতে সমস্যা হয়েছে। Supabase/RLS সেটিংস পরীক্ষা করুন।</div>';return;}
   members=m.data||[];payments=p.data||[];profits=pr.data||[];expenses=e.data||[];assets=a.data||[];notices=n.data||[];
+  detectMonthlyRequired();
+  await loadDividendVisibility();
   fillYearSelectors();fillMemberSelectors();
   renderTotal();renderPersonalTotal();renderProfitExpenseDetails();renderFund();renderNotices();renderAllMembersPreview();
   await checkAdmin();
@@ -154,12 +210,22 @@ function renderPersonal(){
     const due=Math.max(MONTHLY_REQUIRED-paid,0);
     return `<tr><td>${esc(yr)}</td><td>${monthName}</td><td>${paid>0?money(paid):'৳ ০'}</td><td>${money(due)}</td></tr>`;
   })).join('');
+  let allYearsSummary='';
+  if(y==='all'){
+    const dividend=memberDividend(m);
+    const visible=canViewDividend(m.id);
+    allYearsSummary=`<div class="detail-block member-total-detail"><div class="detail-heading"><span>📊</span><h3>সকল বছরের মোট হিসাব</h3></div><div class="summary-grid personal-total-summary">
+      <article><span>মোট পরিশোধ</span><strong>${money(memberPaid(m,'all'))}</strong></article>
+      <article><span>মোট বাকি</span><strong>${money(memberDue(m,'all'))}</strong></article>
+      <article><span>মোট লভ্যাংশ</span><strong>${visible?money(dividend):'গোপন'}</strong></article>
+      <article class="highlight"><span>সর্বমোট প্রাপ্য</span><strong>${money(memberPaid(m,'all')+(visible?dividend:0))}</strong></article>
+    </div></div>`;
+  }else{
+    allYearsSummary=`<div class="member-summary compact-summary"><div>মোট পরিশোধ<strong>${money(memberPaid(m,y))}</strong></div><div>মোট বাকি<strong>${money(memberDue(m,y))}</strong></div></div>`;
+  }
   q('personalResult').innerHTML=`<div class="report-title"><h3>${esc(m.name)}</h3><p>${label}</p></div>
     <div class="print-only personal-print-details"><h4>মাসভিত্তিক বিস্তারিত হিসাব</h4><div class="table-wrap"><table><thead><tr><th>সাল</th><th>মাস</th><th>পরিশোধ</th><th>বাকি</th></tr></thead><tbody>${detailRows}</tbody></table></div></div>
-    <div class="member-summary compact-summary">
-      <div>মোট পরিশোধ<strong>${money(memberPaid(m,y))}</strong></div>
-      <div>মোট বাকি<strong>${money(memberDue(m,y))}</strong></div>
-    </div>
+    ${allYearsSummary}
     ${downloadButton('personal')}`;
   q('personalResult').scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -208,6 +274,11 @@ function renderProfitExpenseDetails(){
   q('profitExpenseDetailsResult').innerHTML=`
     <div class="detail-block profit-detail"><div class="detail-heading"><span>📈</span><h3>লভ্যাংশের বিস্তারিত বিবরণ</h3></div><div class="table-wrap"><table class="detail-table"><thead><tr><th>ক্রমিক</th><th>সাল</th><th class="detail-text">বিবরণ</th><th>পরিমাণ</th></tr></thead><tbody>${profitRows||'<tr><td colspan="4">কোনো লভ্যাংশের তথ্য নেই।</td></tr>'}</tbody><tfoot><tr class="total-row"><td colspan="3">মোট লভ্যাংশ</td><td>${money(profitTotal)}</td></tr></tfoot></table></div></div>
     <div class="detail-block expense-detail"><div class="detail-heading"><span>🧾</span><h3>খরচের বিস্তারিত বিবরণ</h3></div><div class="table-wrap"><table class="detail-table"><thead><tr><th>ক্রমিক</th><th>সাল</th><th class="detail-text">বিবরণ</th><th>পরিমাণ</th></tr></thead><tbody>${expenseRows||'<tr><td colspan="4">কোনো খরচের তথ্য নেই।</td></tr>'}</tbody><tfoot><tr class="total-row"><td colspan="3">মোট খরচ</td><td>${money(expenseTotal)}</td></tr></tfoot></table></div></div>
+    <div class="detail-block dividend-summary-detail"><div class="detail-heading"><span>💰</span><h3>লভ্যাংশের সংক্ষিপ্ত হিসাব</h3></div><div class="summary-grid dividend-summary-grid">
+      <article><span>মোট লভ্যাংশ</span><strong>${money(profitTotal)}</strong></article>
+      <article><span>মোট খরচ</span><strong>${money(expenseTotal)}</strong></article>
+      <article class="highlight"><span>অবশিষ্ট লভ্যাংশ</span><strong>${money(remainingDividend())}</strong></article>
+    </div></div>
     `;
 }
 function renderFund(){
@@ -296,12 +367,16 @@ function renderAdminData(){
     return memberSort(ma,mb)||Number(a.year)-Number(b.year)||Number(a.month)-Number(b.month);
   });
   q('adminPayments').innerHTML=`<table><thead><tr><th>ক্রম</th><th class="name">সদস্য</th><th>সাল</th><th>মাস</th><th>জমা</th><th>অ্যাকশন</th></tr></thead><tbody>`+paymentRows.map((p,i)=>{const m=members.find(x=>String(x.id)===String(p.member_id))||{};return `<tr><td>${Number(m.serial_no||i+1).toLocaleString('bn-BD')}</td><td class="name">${esc(m.name||'')}</td><td>${esc(p.year)}</td><td>${months[Number(p.month)-1]||''}</td><td>${money(p.paid_amount)}</td><td class="row-actions"><button class="small-btn edit" onclick="editPayment('${esc(p.id)}')">Edit</button><button class="small-btn del" onclick="del('payments','${esc(p.id)}')">Delete</button></td></tr>`}).join('')+`</tbody></table>`;
-  q('adminProfits').innerHTML=`<table><thead><tr><th>বছর</th><th class="name">বিবরণ</th><th>মোট লভ্যাংশ</th><th>অ্যাকশন</th></tr></thead><tbody>`+profits.map(x=>`<tr><td>${esc(x.year)}</td><td class="name">${esc(x.description||'')}</td><td>${money(x.total_profit)}</td><td class="row-actions"><button class="small-btn edit" onclick="editProfit('${esc(x.id)}')">Edit</button><button class="small-btn del" onclick="del('profits','${esc(x.id)}')">Delete</button></td></tr>`).join('')+`</tbody></table>`;
+  q('adminProfits').innerHTML=`<div class="dividend-global-actions"><button type="button" class="small-btn dividend-public-all" onclick="setAllDividendVisibility(true)">🟢 সকল সদস্যের লভ্যাংশ Public করুন</button><button type="button" class="small-btn dividend-hide-all" onclick="setAllDividendVisibility(false)">🔴 সকল সদস্যের লভ্যাংশ Hide করুন</button></div><table><thead><tr><th>ক্রম</th><th class="name">সদস্য</th><th>মোট জমা</th><th>প্রাপ্য লভ্যাংশ</th><th>অবস্থা</th><th>অ্যাকশন</th></tr></thead><tbody>`+
+orderedMembers.map((m,i)=>`<tr><td>${Number(m.serial_no||i+1).toLocaleString('bn-BD')}</td><td class="name">${esc(m.name)}</td><td>${money(memberPaid(m,'all'))}</td><td>${money(memberDividend(m))}</td><td>${isDividendPublic(m.id)?'<span class="dividend-status public">🟢 Public</span>':'<span class="dividend-status hidden">🔴 Hidden</span>'}</td><td class="row-actions"><button class="small-btn ${isDividendPublic(m.id)?'del':'edit'}" onclick="toggleDividendVisibility('${esc(m.id)}')">${isDividendPublic(m.id)?'Hide':'Public'}</button></td></tr>`).join('')+
+`</tbody></table><div class="detail-block admin-profit-ledger"><div class="detail-heading"><span>📈</span><h3>লভ্যাংশের মূল হিসাব</h3></div><div class="table-wrap"><table class="detail-table"><thead><tr><th>সাল</th><th class="name">বিবরণ</th><th>লভ্যাংশ</th><th>অ্যাকশন</th></tr></thead><tbody>`+
+profits.map(x=>`<tr><td>${esc(x.year)}</td><td class="name">${esc(x.description||'')}</td><td>${money(x.total_profit)}</td><td class="row-actions"><button class="small-btn edit" onclick="editProfit('${esc(x.id)}')">Edit</button><button class="small-btn del" onclick="del('profits','${esc(x.id)}')">Delete</button></td></tr>`).join('')+
+`</tbody></table></div></div>`;
   q('adminExpenses').innerHTML=`<table><thead><tr><th>বছর</th><th class="name">বিবরণ</th><th>পরিমাণ</th><th>অ্যাকশন</th></tr></thead><tbody>`+expenses.map(x=>`<tr><td>${esc(x.year)}</td><td class="name">${esc(x.description)}</td><td>${money(x.amount)}</td><td class="row-actions"><button class="small-btn edit" onclick="editExpense('${esc(x.id)}')">Edit</button><button class="small-btn del" onclick="del('expenses','${esc(x.id)}')">Delete</button></td></tr>`).join('')+`</tbody></table>`;
   q('adminAssets').innerHTML=`<table><thead><tr><th>বছর</th><th>খাত</th><th class="name">বিবরণ</th><th>পরিমাণ</th><th>অ্যাকশন</th></tr></thead><tbody>`+assets.map(x=>`<tr><td>${esc(x.year)}</td><td>${esc(x.category)}</td><td class="name">${esc(x.description)}</td><td>${money(x.amount)}</td><td class="row-actions"><button class="small-btn edit" onclick="editAsset('${esc(x.id)}')">Edit</button><button class="small-btn del" onclick="del('assets','${esc(x.id)}')">Delete</button></td></tr>`).join('')+`</tbody></table>`;
   q('adminNotices').innerHTML=`<table><thead><tr><th>শিরোনাম</th><th class="name">বিবরণ</th><th>তারিখ</th><th>অ্যাকশন</th></tr></thead><tbody>`+notices.map(x=>`<tr><td>${esc(x.title)}</td><td class="name">${esc(x.description)}</td><td>${esc(x.publish_date||'')}</td><td class="row-actions"><button class="small-btn edit" onclick="editNotice('${esc(x.id)}')">Edit</button><button class="small-btn del" onclick="del('notices','${esc(x.id)}')">Delete</button></td></tr>`).join('')+`</tbody></table>`;
 }
-async function checkAdmin(){if(!sb)return;const {data:{session}}=await sb.auth.getSession();adminUser=session?.user||null;if(!adminUser){q('loginBox').hidden=false;q('adminBox').hidden=true;return}const {data,error}=await sb.from('admin_users').select('user_id').eq('user_id',adminUser.id).maybeSingle();if(error||!data){q('loginBox').hidden=false;q('adminBox').hidden=true;q('loginMsg').textContent='এই অ্যাকাউন্টে অ্যাডমিন অনুমতি নেই।';return}q('loginBox').hidden=true;q('adminBox').hidden=false;q('adminUser').textContent=adminUser.email||'Admin';renderAdminData()}
+async function checkAdmin(){if(!sb)return;const {data:{session}}=await sb.auth.getSession();adminUser=session?.user||null;if(!adminUser){q('loginBox').hidden=false;q('adminBox').hidden=true;return}const {data,error}=await sb.from('admin_users').select('user_id').eq('user_id',adminUser.id).maybeSingle();if(error||!data){q('loginBox').hidden=false;q('adminBox').hidden=true;q('loginMsg').textContent='এই অ্যাকাউন্টে অ্যাডমিন অনুমতি নেই।';return}q('loginBox').hidden=true;q('adminBox').hidden=false;q('adminUser').textContent=adminUser.email||'Admin';loadDividendVisibility().then(()=>renderAdminData())}
 async function login(){if(!sb){showMessage('Supabase configuration পাওয়া যায়নি।',false,'loginMsg');return}showMessage('লগইন হচ্ছে...',true,'loginMsg');const {error}=await sb.auth.signInWithPassword({email:q('adminEmail').value.trim(),password:q('adminPassword').value});if(error){showMessage(error.message,false,'loginMsg');return}await checkAdmin();q('adminPassword').value=''}
 async function logout(){await sb.auth.signOut();location.hash='admin';location.reload()}
 function openForm(name){document.querySelectorAll('.admin-form').forEach(f=>f.classList.remove('active'));const f=q(name+'Form');if(f)f.classList.add('active')}
@@ -392,11 +467,11 @@ function printSection(id){
 function reportShell(title,subtitle,body,landscape=false){
   return `<!doctype html><html lang="bn"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>
   *{box-sizing:border-box}body{margin:0;padding:24px;background:#fff;color:#17221f;font-family:Arial,"Noto Sans Bengali","Noto Sans",sans-serif}
-  .report{max-width:${landscape?'1400px':'900px'};margin:0 auto}.head{text-align:center;margin-bottom:18px}.head h1{margin:0;font-size:28px;font-weight:800}.head p{margin:5px 0 0;font-size:13px;color:#65736e}.title{text-align:center;margin-bottom:18px}.title h2{margin:0 0 5px;font-size:22px}.title p{margin:0;font-size:13px;color:#65736e}
+  .report{max-width:${landscape?'1700px':'900px'};margin:0 auto}.head{text-align:center;margin-bottom:18px}.head h1{margin:0;font-size:28px;font-weight:800}.head p{margin:5px 0 0;font-size:13px;color:#65736e}.title{text-align:center;margin-bottom:18px}.title h2{margin:0 0 5px;font-size:22px}.title p{margin:0;font-size:13px;color:#65736e}
   .meta{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:14px}.meta>div{border:1px solid #d6e2dd;padding:8px 10px;border-radius:6px}.meta span{display:block;font-size:11px;color:#687772}.meta strong{display:block;margin-top:2px;font-size:14px}
-  .table-wrap{width:100%;overflow-x:auto}table{width:100%;border-collapse:collapse;background:#fff}th,td{border:1px solid #c9d6d1;text-align:center;padding:6px 5px;font-size:12px;line-height:1.3;white-space:nowrap}th{font-weight:800;background:#f0f6f3}td.name,th.name{text-align:left;white-space:nowrap}.total-row td{font-weight:800;background:#f6faf8}
+  .table-wrap{width:100%;overflow-x:auto}table{width:100%;border-collapse:collapse;background:#fff}th,td{border:1px solid #c9d6d1;text-align:center;padding:4px 3px;font-size:10px;line-height:1.2;white-space:nowrap}th{font-weight:800;background:#f0f6f3}td.name,th.name{text-align:left;white-space:nowrap}.total-row td{font-weight:800;background:#f6faf8}
   .summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.summary>div{border:1px solid #cfded8;border-radius:7px;padding:9px;text-align:center;background:#f7fbf9}.summary span{display:block;font-size:11px;color:#63716c}.summary strong{display:block;margin-top:3px;font-size:17px}
-  .download-note{margin-top:16px;text-align:center;font-size:11px;color:#687772}@media(max-width:600px){body{padding:12px}.head h1{font-size:22px}.title h2{font-size:18px}.meta{grid-template-columns:1fr}.report{max-width:none}th,td{font-size:11px;padding:5px 4px}}
+  .download-note{margin-top:16px;text-align:center;font-size:11px;color:#687772}@media(max-width:600px){body{padding:8px}.head h1{font-size:22px}.title h2{font-size:18px}.meta{grid-template-columns:1fr}.report{max-width:none}th,td{font-size:9px;padding:3px 2px}}
 </style></head><body><main class="report"><div class="head"><h1>আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ</h1><p>বানিপুর, কেন্দুয়া, নেত্রকোনা, মোমেনশাহী, ঢাকা</p></div><div class="title"><h2>${esc(title)}</h2><p>${esc(subtitle)}</p></div>${body}</main></body></html>`;
 }
 function downloadHtmlFile(filename,html){

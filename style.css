@@ -250,3 +250,20 @@ footer{background:#076f45;color:#fff;text-align:center;padding:24px 0;font-size:
 /* Keep all-members rows on one horizontal line */
 .member-report-table th,.member-report-table td{white-space:nowrap!important}
 .member-report-table th.name,.member-report-table td.name{white-space:nowrap!important}
+
+/* Dividend visibility and summary additions */
+
+.dividend-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr));margin:0}
+.dividend-summary-grid article{background:#fff}
+.dividend-summary-grid article:nth-child(even){background:#eef7f2}
+.dividend-summary-grid .highlight{border:2px solid var(--green)}
+.personal-total-summary{margin-top:4px}
+.personal-total-summary article{min-width:0}
+.dividend-global-actions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;justify-content:center}
+.dividend-public-all{background:#e8f7ef!important;color:#087f4e!important}
+.dividend-hide-all{background:#ffe9e9!important;color:#a52222!important}
+.dividend-status{font-weight:800;white-space:nowrap}
+.dividend-status.public{color:#087f4e}
+.dividend-status.hidden{color:#a52222}
+.admin-profit-ledger{margin-top:16px}
+@media(max-width:700px){.dividend-summary-grid{grid-template-columns:1fr}.dividend-global-actions{flex-direction:column}.dividend-global-actions button{width:100%;padding:10px 8px}}
