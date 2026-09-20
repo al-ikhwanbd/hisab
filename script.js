@@ -472,7 +472,7 @@ function reportShell(title,subtitle,body,landscape=false){
   .meta{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:14px}.meta>div{border:1px solid #d6e2dd;padding:8px 10px;border-radius:6px}.meta span{display:block;font-size:11px;color:#687772}.meta strong{display:block;margin-top:2px;font-size:14px}
   .table-wrap{width:100%;overflow-x:auto}table{width:100%;border-collapse:collapse;background:#fff}th,td{border:1px solid #c9d6d1;text-align:center;padding:4px 3px;font-size:10px;line-height:1.2;white-space:nowrap}th{font-weight:800;background:#f0f6f3}td.name,th.name{text-align:left;white-space:nowrap}.total-row td{font-weight:800;background:#f6faf8}
   .summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.summary>div{border:1px solid #cfded8;border-radius:7px;padding:9px;text-align:center;background:#f7fbf9}.summary span{display:block;font-size:11px;color:#63716c}.summary strong{display:block;margin-top:3px;font-size:17px}
-  .download-note{margin-top:16px;text-align:center;font-size:11px;color:#687772}@media(max-width:600px){body{padding:8px}.head h1{font-size:22px}.title h2{font-size:18px}.meta{grid-template-columns:1fr}.report{max-width:none}th,td{font-size:9px;padding:3px 2px}}
+  .download-note{margin-top:16px;text-align:center;font-size:11px;color:#687772}@media print{@page{margin:10mm}.report{max-width:none!important}.head{margin-top:0}.table-wrap{overflow:visible!important}table{width:100%!important;table-layout:fixed}thead{display:table-row-group!important}tfoot{display:table-row-group!important}.total-row{break-inside:avoid!important;page-break-inside:avoid!important}.summary{break-inside:avoid!important;page-break-inside:avoid!important}.pdf-landscape{page-break-before:auto}.pdf-landscape table{font-size:8px!important}.pdf-landscape th,.pdf-landscape td{font-size:8px!important;padding:3px 2px!important}}@media(max-width:600px){body{padding:8px}.head h1{font-size:22px}.title h2{font-size:18px}.meta{grid-template-columns:1fr}.report{max-width:none}th,td{font-size:9px;padding:3px 2px}}
 </style></head><body><main class="report"><div class="head"><h1>আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ</h1><p>বানিপুর, কেন্দুয়া, নেত্রকোনা, মোমেনশাহী, ঢাকা</p></div><div class="title"><h2>${esc(title)}</h2><p>${esc(subtitle)}</p></div>${body}</main></body></html>`;
 }
 function downloadHtmlFile(filename,html){
@@ -485,15 +485,24 @@ function downloadPersonalReport(){
   const y=q('personalYear').value,id=q('personalMember').value;
   if(!y||!id){showMessage('আগে সাল ও সদস্য নির্বাচন করে অনুসন্ধান করুন।',false);return;}
   const m=members.find(x=>String(x.id)===String(id));if(!m)return;
-  const detailYears=selectedYears(y);
-  const detailRows=detailYears.flatMap(yr=>months.map((monthName,idx)=>{
-    const paid=memberMonthPaid(m,yr,idx+1),due=Math.max(MONTHLY_REQUIRED-paid,0);
-    return `<tr><td>${esc(yr)}</td><td>${monthName}</td><td>${paid>0?Number(paid).toLocaleString('bn-BD'):'০'}</td><td>${Number(due).toLocaleString('bn-BD')}</td></tr>`;
-  })).join('');
-  const title=`${m.name} — ব্যক্তিগত হিসাব`;
-  const subtitle=y==='all'?'সকল বছরের বিস্তারিত মাসভিত্তিক হিসাব':`${y} সালের বিস্তারিত মাসভিত্তিক হিসাব`;
-  const body=`<div class="meta"><div><span>সদস্যের নাম</span><strong>${esc(m.name)}</strong></div><div><span>সাল</span><strong>${esc(y==='all'?'সকল বছর':y)}</strong></div></div><div class="table-wrap"><table><thead><tr><th>সাল</th><th>মাস</th><th>পরিশোধ</th><th>বাকি</th></tr></thead><tbody>${detailRows}</tbody></table></div><div class="summary"><div><span>মোট পরিশোধ</span><strong>${money(memberPaid(m,y))}</strong></div><div><span>মোট বাকি</span><strong>${money(memberDue(m,y))}</strong></div></div>`;
-  downloadHtmlFile(`personal-${String(y).replace(/[^0-9a-zA-Z_-]/g,'')}-${String(m.name).replace(/[^\u0980-\u09FFa-zA-Z0-9_-]+/g,'-')}.html`,reportShell(title,subtitle,body,false));
+
+  if(y==='all'){
+    const rows=years.map(yr=>{
+      const monthCells=months.map((_,mi)=>`<td>${paidCell(m,yr,mi+1)}</td>`).join('');
+      return `<tr><td>${esc(yr)}</td>${monthCells}<td>${money(memberPaid(m,yr))}</td><td>${money(memberDue(m,yr))}</td></tr>`;
+    }).join('');
+    const body=`<div class="table-wrap"><table><thead><tr><th>সাল</th>${months.map(monthName=>`<th>${monthName}</th>`).join('')}<th>মোট পরিশোধ</th><th>মোট বাকি</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="summary"><div><span>মোট পরিশোধ</span><strong>${money(memberPaid(m,'all'))}</strong></div><div><span>মোট বাকি</span><strong>${money(memberDue(m,'all'))}</strong></div><div><span>মোট লভ্যাংশ</span><strong>${canViewDividend(m.id)?money(memberDividend(m)):'গোপন'}</strong></div><div><span>সর্বমোট প্রাপ্য</span><strong>${money(memberPaid(m,'all')+(canViewDividend(m.id)?memberDividend(m):0))}</strong></div></div>`;
+    downloadHtmlFile(`personal-all-${String(m.name).replace(/[^\u0980-\u09FFa-zA-Z0-9_-]+/g,'-')}.html`,reportShell('ব্যক্তিগত হিসাব','সকল বছরের মাসভিত্তিক হিসাব',body,false));
+    return;
+  }
+
+  const detailRows=months.map((monthName,idx)=>{
+    const paid=memberMonthPaid(m,y,idx+1),due=Math.max(MONTHLY_REQUIRED-paid,0);
+    return `<tr><td>${monthName}</td><td>${paid>0?Number(paid).toLocaleString('bn-BD'):'০'}</td><td>${Number(due).toLocaleString('bn-BD')}</td></tr>`;
+  }).join('');
+  const body=`<div class="table-wrap"><table><thead><tr><th>মাস</th><th>মোট পরিশোধ</th><th>মোট বাকি</th></tr></thead><tbody>${detailRows}</tbody><tfoot><tr class="total-row"><td>সর্বমোট</td><td>${money(memberPaid(m,y))}</td><td>${money(memberDue(m,y))}</td></tr></tfoot></table></div><div class="summary"><div><span>মোট পরিশোধ</span><strong>${money(memberPaid(m,y))}</strong></div><div><span>মোট বাকি</span><strong>${money(memberDue(m,y))}</strong></div></div>`;
+  downloadHtmlFile(`personal-${String(y).replace(/[^0-9a-zA-Z_-]/g,'')}-${String(m.name).replace(/[^\u0980-\u09FFa-zA-Z0-9_-]+/g,'-')}.html`,reportShell('ব্যক্তিগত হিসাব','মাসভিত্তিক বিস্তারিত হিসাব',body,false));
 }
 function downloadAllMembersReport(){
   const y=q('allMembersYear').value||'all';
