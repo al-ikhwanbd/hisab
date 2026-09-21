@@ -1,72 +1,5 @@
-const sb=null;
-const CLOUD_URL=window.SUPABASE_URL||'';
-const CLOUD_KEY=window.SUPABASE_ANON_KEY||'';
-let cloudAccessToken=localStorage.getItem('alikhwan_cloud_access_token')||'';
-let offlineAdminUnlocked=localStorage.getItem('alikhwan_offline_admin')==='1';
-const DATA_STORES=['members','payments','profits','expenses','assets','notices','dividendVisibility'];
-const TABLE_MAP={members:'members',payments:'payments',profits:'profits',expenses:'expenses',assets:'assets',notices:'notices',dividendVisibility:'member_dividend_visibility'};
-function online(){return navigator.onLine;}
-function uuid(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);}
-async function cloudFetch(path,opts={}){
-  if(!CLOUD_URL||!CLOUD_KEY) throw new Error('Supabase configuration পাওয়া যায়নি।');
-  const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),12000);
-  const headers={apikey:CLOUD_KEY,Accept:'application/json',...(opts.headers||{})};
-  if(cloudAccessToken)headers.Authorization='Bearer '+cloudAccessToken;
-  try{const res=await fetch(CLOUD_URL+path,{...opts,headers,signal:controller.signal});const text=await res.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}if(!res.ok){const msg=data?.message||data?.error_description||data?.hint||text||res.statusText;throw new Error(msg)}return data;}finally{clearTimeout(timer)}
-}
-async function cloudSelect(table,query=''){const rows=[];const page=1000;for(let from=0;;from+=page){const data=await cloudFetch(`/rest/v1/${table}?select=*${query?('&'+query):''}`,{headers:{Range:`${from}-${from+page-1}`}});const arr=Array.isArray(data)?data:[];rows.push(...arr);if(arr.length<page)break;}return rows;}
-async function queueOp(op){op.id=op.id||uuid();op.created_at=new Date().toISOString();await OfflineDB.put('queue',op);}
-async function cloudMutation(item){const table=TABLE_MAP[item.table];if(!table)throw new Error('অজানা টেবিল');
-  if(item.op==='delete'){await cloudFetch(`/rest/v1/${table}?id=eq.${encodeURIComponent(item.row.id)}`,{method:'DELETE',headers:{Prefer:'return=minimal'}});return;}
-  const row={...item.row};
-  if(item.table==='profits'){
-    await cloudFetch(`/rest/v1/profits?on_conflict=year`,{method:'POST',headers:{'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(row)});return;
-  }
-  if(item.table==='dividendVisibility'){
-    const v={member_id:row.member_id,is_public:!!row.is_public,updated_at:row.updated_at||new Date().toISOString()};
-    await cloudFetch(`/rest/v1/member_dividend_visibility?on_conflict=member_id`,{method:'POST',headers:{'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(v)});return;
-  }
-  if(item.op==='update'){
-    await cloudFetch(`/rest/v1/${table}?id=eq.${encodeURIComponent(row.id)}`,{method:'PATCH',headers:{'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(row)});return;
-  }
-  await cloudFetch(`/rest/v1/${table}`,{method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(row)});
-}
-async function pushQueue(){
-  if(!online()||!cloudAccessToken)return;
-  const queue=(await OfflineDB.all('queue')).sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)));
-  for(const item of queue){try{await cloudMutation(item);await OfflineDB.remove('queue',item.id)}catch(e){console.warn('sync queue',e.message);break;}}
-}
-async function syncFromCloud(force=false){
-  if(!online())return false;
-  try{
-    if(cloudAccessToken)await pushQueue();
-    const pending=await OfflineDB.all('queue'); if(pending.length&&!force)return false;
-    const [m,p,pr,e,a,n,v]=await Promise.all([
-      cloudSelect('members','status=eq.active&order=serial_no.asc'),
-      cloudSelect('payments','order=year.asc&month.asc'),
-      cloudSelect('profits','order=year.asc'),
-      cloudSelect('expenses','order=date.desc'),
-      cloudSelect('assets','status=eq.active&order=date.desc'),
-      cloudSelect('notices','status=eq.published&order=publish_date.desc'),
-      cloudSelect('member_dividend_visibility','select=member_id,is_public')
-    ]);
-    await Promise.all([OfflineDB.replace('members',m),OfflineDB.replace('payments',p),OfflineDB.replace('profits',pr),OfflineDB.replace('expenses',e),OfflineDB.replace('assets',a),OfflineDB.replace('notices',n),OfflineDB.replace('dividendVisibility',(v||[]).map(x=>({id:String(x.member_id),member_id:x.member_id,is_public:x.is_public}))) ]);
-    localStorage.setItem('alikhwan_last_sync',new Date().toISOString());
-    return true;
-  }catch(e){console.warn('cloud sync:',e.message);return false;}
-}
-async function loadLocal(){
-  [members,payments,profits,expenses,assets,notices]=await Promise.all(['members','payments','profits','expenses','assets','notices'].map(s=>OfflineDB.all(s)));
-  dividendVisibility={};(await OfflineDB.all('dividendVisibility')).forEach(r=>dividendVisibility[String(r.member_id||r.id)]=!!r.is_public);
-  detectMonthlyRequired();fillYearSelectors();fillMemberSelectors();renderTotal();renderPersonalTotal();renderProfitExpenseDetails();renderFund();renderNotices();renderAllMembersPreview();
-}
-async function saveLocal(table,row,op='insert'){
-  row.id=row.id||uuid();
-  if(table==='members'&&!row.serial_no){const arr=await OfflineDB.all('members');row.serial_no=arr.reduce((mx,x)=>Math.max(mx,Number(x.serial_no)||0),0)+1;}
-  await OfflineDB.put(table,row);await queueOp({op,table,row});await loadLocal();return row;
-}
-async function deleteLocal(table,id){await OfflineDB.remove(table,id);await queueOp({op:'delete',table,row:{id}});await loadLocal();}
-function localAdminAvailable(){return offlineAdminUnlocked||!!cloudAccessToken;}
+const sb=(window.supabase&&window.SUPABASE_URL&&window.SUPABASE_ANON_KEY)
+  ?window.supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON_KEY):null;
 
 const months=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
 const money=n=>`৳ ${Number(n||0).toLocaleString('bn-BD')}`;
@@ -187,28 +120,70 @@ function canViewDividend(memberId){
 }
 async function loadDividendVisibility(){
   dividendVisibility={};
-  const rows=await OfflineDB.all('dividendVisibility');
-  rows.forEach(row=>{dividendVisibility[String(row.member_id||row.id)]=!!row.is_public;});
+  if(!sb)return;
+  const {data,error}=await sb.from('member_dividend_visibility').select('member_id,is_public');
+  if(error){console.warn('member_dividend_visibility load:',error.message);return;}
+  (data||[]).forEach(row=>{dividendVisibility[String(row.member_id)]=!!row.is_public;});
 }
 async function setDividendVisibility(memberId,isPublic){
-  const row={id:String(memberId),member_id:memberId,is_public:!!isPublic,updated_at:new Date().toISOString()};
-  await OfflineDB.put('dividendVisibility',row);await queueOp({op:'upsert',table:'dividendVisibility',row});
-  dividendVisibility[String(memberId)]=!!isPublic;renderAdminData();showMessage(isPublic?'লভ্যাংশ Public করা হয়েছে ✓':'লভ্যাংশ Hidden করা হয়েছে ✓',true);if(online()&&cloudAccessToken)await pushQueue();return true;
+  const {error}=await sb.from('member_dividend_visibility').upsert(
+    {member_id:memberId,is_public:!!isPublic,updated_at:new Date().toISOString()},
+    {onConflict:'member_id'}
+  );
+  if(error){showMessage('লভ্যাংশের Public/Hidden সংরক্ষণ করা যায়নি। আগে member_dividend_visibility টেবিল ও RLS সেটিংস তৈরি করুন।',false);return false;}
+  dividendVisibility[String(memberId)]=!!isPublic;
+  renderAdminData();
+  showMessage(isPublic?'লভ্যাংশ Public করা হয়েছে ✓':'লভ্যাংশ Hidden করা হয়েছে ✓',true);
+  return true;
 }
 async function setAllDividendVisibility(isPublic){
-  const ids=members.map(m=>m.id);if(!ids.length){showMessage('কোনো সক্রিয় সদস্য পাওয়া যায়নি।',false);return;}
-  for(const id of ids)await setDividendVisibility(id,isPublic);
+  const ids=members.map(m=>m.id);
+  if(!ids.length){showMessage('কোনো সক্রিয় সদস্য পাওয়া যায়নি।',false);return;}
+  const rows=ids.map(id=>({member_id:id,is_public:!!isPublic,updated_at:new Date().toISOString()}));
+  const {error}=await sb.from('member_dividend_visibility').upsert(rows,{onConflict:'member_id'});
+  if(error){showMessage('সব সদস্যের লভ্যাংশ Public/Hidden করা যায়নি। আগে member_dividend_visibility টেবিল ও RLS সেটিংস তৈরি করুন।',false);return;}
+  ids.forEach(id=>{dividendVisibility[String(id)]=!!isPublic;});
+  renderAdminData();
   showMessage(isPublic?'সকল সদস্যের লভ্যাংশ Public করা হয়েছে ✓':'সকল সদস্যের লভ্যাংশ Hide করা হয়েছে ✓',true);
 }
-async function toggleDividendVisibility(memberId){await setDividendVisibility(memberId,!isDividendPublic(memberId));}
+async function toggleDividendVisibility(memberId){
+  await setDividendVisibility(memberId,!isDividendPublic(memberId));
+}
 function currentFund(){return remainingFund()-totalAssets('all')}
 function downloadButton(kind){return `<div class="result-download"><button class="download-btn" type="button" onclick="${kind==='personal'?'downloadPersonalReport()':'downloadAllMembersReport()'}">⬇️ বিস্তারিত হিসাব ডাউনলোড</button></div>`}
 
 async function load(){
+  if(!sb){q('totalResult').innerHTML='<div class="empty-state">Supabase configuration পাওয়া যায়নি।</div>';return;}
   q('totalResult').innerHTML='<div class="loading">ডাটা লোড হচ্ছে...</div>';
-  await loadLocal();
-  if(online())await syncFromCloud();
-  await loadLocal();
+  // Supabase-এর একবারের select সাধারণত সর্বোচ্চ ১০০০টি row ফেরত দিতে পারে।
+  // ২০২১–২০২৪ সালের payments মোট ১৬৩৬টি হওয়ায় একবারে নিলে ২০২৩/২০২৪-এর
+  // পরের রেকর্ডগুলো বাদ পড়ে যাচ্ছিল। তাই শুধু payments-এর জন্য সব row page করে নেওয়া হচ্ছে।
+  const fetchAllPayments=async()=>{
+    const rows=[];
+    const pageSize=1000;
+    for(let from=0;;from+=pageSize){
+      const {data,error}=await sb.from('payments').select('*').order('year').order('month').range(from,from+pageSize-1);
+      if(error)return {data:null,error};
+      rows.push(...(data||[]));
+      if(!data||data.length<pageSize)break;
+    }
+    return {data:rows,error:null};
+  };
+  const [m,p,pr,e,a,n]=await Promise.all([
+    sb.from('members').select('*').eq('status','active').order('serial_no',{ascending:true,nullsFirst:false}).order('created_at'),
+    fetchAllPayments(),
+    sb.from('profits').select('*').order('year'),
+    sb.from('expenses').select('*').order('date',{ascending:false}),
+    sb.from('assets').select('*').eq('status','active').order('date',{ascending:false}),
+    sb.from('notices').select('*').eq('status','published').order('publish_date',{ascending:false})
+  ]);
+  const errors=[m,p,pr,e,a,n].filter(x=>x.error);
+  if(errors.length){console.error(...errors.map(x=>x.error));q('totalResult').innerHTML='<div class="empty-state">ডাটা লোড করতে সমস্যা হয়েছে। Supabase/RLS সেটিংস পরীক্ষা করুন।</div>';return;}
+  members=m.data||[];payments=p.data||[];profits=pr.data||[];expenses=e.data||[];assets=a.data||[];notices=n.data||[];
+  detectMonthlyRequired();
+  await loadDividendVisibility();
+  fillYearSelectors();fillMemberSelectors();
+  renderTotal();renderPersonalTotal();renderProfitExpenseDetails();renderFund();renderNotices();renderAllMembersPreview();
   await checkAdmin();
 }
 
@@ -321,27 +296,51 @@ function renderNotices(){
 }
 function showMessage(text,ok=false,target='adminMsg'){const el=q(target);if(!el)return;el.textContent=text;el.className='message '+(ok?'success':'error')}
 function resetForm(id){const f=q(id);if(!f)return;f.reset();const h=f.querySelector('[name=id]');if(h)h.value=''}
-async function saveOrUpdate(table,form,make){
-  const d=Object.fromEntries(new FormData(form).entries()),id=d.id,row=make(d);row.id=id||uuid();
-  await saveLocal(table,row,id?'update':'insert');
-  showMessage('সফলভাবে সংরক্ষণ হয়েছে ✓',true);resetForm(form.id);if(online()&&cloudAccessToken)await pushQueue();return true;
-}
+async function saveOrUpdate(table,form,make){const d=Object.fromEntries(new FormData(form).entries()),id=d.id,row=make(d);const res=id?await sb.from(table).update(row).eq('id',id):await sb.from(table).insert(row);if(res.error){showMessage(res.error.message,false);return false}showMessage('সফলভাবে সংরক্ষণ হয়েছে ✓',true);resetForm(form.id);await load();return true}
 async function saveMember(){await saveOrUpdate('members',q('memberForm'),d=>({name:d.name.trim(),address:d.address?.trim()||null,mobile:d.mobile||null,status:'active'}))}
 async function savePayment(){
-  const f=q('paymentForm'),d=Object.fromEntries(new FormData(f).entries());const startMonth=Number(d.month),monthCount=Math.max(1,Number(d.month_count||1)),totalAmount=Number(d.paid_amount||0),year=Number(d.year);
-  if(!d.id&&startMonth+monthCount-1>12){showMessage('নির্বাচিত মাস থেকে যত মাস দিয়েছেন তা একই বছরের ডিসেম্বরের মধ্যে হতে হবে।',false);return}
-  if(d.id){await saveLocal('payments',{id:d.id,member_id:d.member_id,year,month:startMonth,required_amount:MONTHLY_REQUIRED,paid_amount:totalAmount,payment_date:null},'update');showMessage('মাসিক জমা সংরক্ষণ হয়েছে ✓',true);resetForm('paymentForm');if(online()&&cloudAccessToken)await pushQueue();return;}
-  const existing=(await OfflineDB.all('payments')).filter(x=>String(x.member_id)===String(d.member_id)&&Number(x.year)===year&&Number(x.month)>=startMonth&&Number(x.month)<startMonth+monthCount);
-  const paidExisting=existing.filter(x=>Number(x.paid_amount||0)>0);if(paidExisting.length){showMessage(`এই সদস্যের ${year} সালের ${paidExisting.map(x=>months[Number(x.month)-1]).join(', ')} মাসের জমা আগে থেকেই আছে। কোনো তথ্য পরিবর্তন করা হয়নি।`,false);return;}
+  const f=q('paymentForm'),d=Object.fromEntries(new FormData(f).entries());
+  const startMonth=Number(d.month),monthCount=Math.max(1,Number(d.month_count||1)),totalAmount=Number(d.paid_amount||0),year=Number(d.year);
+  if(!d.id && startMonth+monthCount-1>12){showMessage('নির্বাচিত মাস থেকে যত মাস দিয়েছেন তা একই বছরের ডিসেম্বরের মধ্যে হতে হবে।',false);return}
+  if(d.id){
+    const row={member_id:d.member_id,year,month:startMonth,required_amount:MONTHLY_REQUIRED,paid_amount:totalAmount,payment_date:null};
+    const res=await sb.from('payments').update(row).eq('id',d.id);
+    if(res.error){showMessage(res.error.message,false);return}
+    showMessage('মাসিক জমা সংরক্ষণ হয়েছে ✓',true);resetForm('paymentForm');await load();return;
+  }
+  const monthList=Array.from({length:monthCount},(_,i)=>startMonth+i);
+  const existing=await sb.from('payments').select('id,month,paid_amount').eq('member_id',d.member_id).eq('year',year).in('month',monthList);
+  if(existing.error){showMessage(existing.error.message,false);return}
+  const existingRows=existing.data||[];
+  const paidExisting=existingRows.filter(x=>Number(x.paid_amount||0)>0);
+  if(paidExisting.length){
+    const names=paidExisting.map(x=>months[Number(x.month)-1]).join(', ');
+    showMessage(`এই সদস্যের ${year} সালের ${names} মাসের জমা আগে থেকেই আছে। কোনো তথ্য পরিবর্তন করা হয়নি।`,false);return;
+  }
   const totalCents=Math.round(totalAmount*100),baseCents=Math.floor(totalCents/monthCount),remainder=totalCents-baseCents*monthCount;
-  for(let i=0;i<monthCount;i++){const month=startMonth+i;await saveLocal('payments',{id:uuid(),member_id:d.member_id,year,month,required_amount:MONTHLY_REQUIRED,paid_amount:(baseCents+(i===monthCount-1?remainder:0))/100,payment_date:null},'insert');}
-  showMessage(`${monthCount} মাসের জমা একসাথে সংরক্ষণ হয়েছে ✓`,true);resetForm('paymentForm');if(online()&&cloudAccessToken)await pushQueue();
+  const updateRows=[],insertRows=[];
+  monthList.forEach((month,i)=>{
+    const amount=(baseCents+(i===monthCount-1?remainder:0))/100;
+    const found=existingRows.find(x=>Number(x.month)===month);
+    const row={member_id:d.member_id,year,month,required_amount:MONTHLY_REQUIRED,paid_amount:amount,payment_date:null};
+    if(found) updateRows.push({id:found.id,row});
+    else insertRows.push(row);
+  });
+  for(const item of updateRows){
+    const res=await sb.from('payments').update(item.row).eq('id',item.id);
+    if(res.error){showMessage(res.error.message,false);return}
+  }
+  if(insertRows.length){
+    const res=await sb.from('payments').insert(insertRows);
+    if(res.error){showMessage(res.error.message,false);return}
+  }
+  showMessage(`${monthCount} মাসের জমা একসাথে সংরক্ষণ হয়েছে ✓`,true);resetForm('paymentForm');await load();
 }
-async function saveProfit(){const d=Object.fromEntries(new FormData(q('profitForm')).entries());const row={id:d.id||uuid(),year:+d.year,description:d.description.trim(),total_profit:+d.total_profit};await saveLocal('profits',row,d.id?'update':'insert');showMessage('লভ্যাংশ সংরক্ষণ হয়েছে ✓',true);resetForm('profitForm');if(online()&&cloudAccessToken)await pushQueue()}
+async function saveProfit(){const d=Object.fromEntries(new FormData(q('profitForm')).entries());const row={year:+d.year,description:d.description.trim(),total_profit:+d.total_profit};const res=d.id?await sb.from('profits').update(row).eq('id',d.id):await sb.from('profits').upsert(row,{onConflict:'year'});if(res.error){showMessage(res.error.message,false);return}showMessage('লভ্যাংশ সংরক্ষণ হয়েছে ✓',true);resetForm('profitForm');await load()}
 async function saveExpense(){await saveOrUpdate('expenses',q('expenseForm'),d=>({year:+d.year,description:d.description.trim(),amount:+d.amount}))}
 async function saveAsset(){await saveOrUpdate('assets',q('assetForm'),d=>({year:+d.year,date:d.date,category:d.category.trim(),description:d.description.trim(),amount:+d.amount,status:'active'}))}
-async function saveNotice(){await saveOrUpdate('notices',q('noticeForm'),d=>({title:d.title.trim(),description:d.description.trim(),status:'published',publish_date:new Date().toISOString().slice(0,10)}))}
-async function del(table,id){if(!confirm('এই তথ্যটি মুছে ফেলতে চান?'))return;await deleteLocal(table,id);showMessage('তথ্য মুছে ফেলা হয়েছে ✓',true);if(online()&&cloudAccessToken)await pushQueue()}
+async function saveNotice(){await saveOrUpdate('notices',q('noticeForm'),d=>({title:d.title.trim(),description:d.description.trim(),status:'published'}))}
+async function del(table,id){if(!confirm('এই তথ্যটি মুছে ফেলতে চান?'))return;const {error}=await sb.from(table).delete().eq('id',id);if(error){showMessage(error.message,false);return}showMessage('তথ্য মুছে ফেলা হয়েছে ✓',true);await load()}
 function editMember(id){const m=members.find(x=>String(x.id)===String(id));if(!m)return;const f=q('memberForm');f.id.value=m.id;f.name.value=m.name;f.address.value=m.address||'';f.mobile.value=m.mobile||'';openForm('member');f.scrollIntoView({behavior:'smooth',block:'start'})}
 function editPayment(id){const p=payments.find(x=>String(x.id)===String(id));if(!p)return;const f=q('paymentForm');f.id.value=p.id;f.member_id.value=p.member_id;f.year.value=p.year;f.month.value=p.month;if(f.month_count)f.month_count.value=1;f.paid_amount.value=p.paid_amount;openForm('payment');f.scrollIntoView({behavior:'smooth',block:'start'})}
 function editProfit(id){const x=profits.find(x=>String(x.id)===String(id));if(!x)return;const f=q('profitForm');f.id.value=x.id;f.year.value=x.year;f.description.value=x.description||'';f.total_profit.value=x.total_profit;openForm('profit');f.scrollIntoView({behavior:'smooth',block:'start'})}
@@ -378,29 +377,9 @@ function renderAdminData(){
   q('adminAssets').innerHTML=`<table><thead><tr><th>বছর</th><th>খাত</th><th class="name">বিবরণ</th><th>পরিমাণ</th><th>অ্যাকশন</th></tr></thead><tbody>`+assets.map(x=>`<tr><td>${esc(x.year)}</td><td>${esc(x.category)}</td><td class="name">${esc(x.description)}</td><td>${money(x.amount)}</td><td class="row-actions"><button class="small-btn edit" onclick="editAsset('${esc(x.id)}')">Edit</button><button class="small-btn del" onclick="del('assets','${esc(x.id)}')">Delete</button></td></tr>`).join('')+`</tbody></table>`;
   q('adminNotices').innerHTML=`<table><thead><tr><th>শিরোনাম</th><th class="name">বিবরণ</th><th>তারিখ</th><th>অ্যাকশন</th></tr></thead><tbody>`+notices.map(x=>`<tr><td>${esc(x.title)}</td><td class="name">${esc(x.description)}</td><td>${esc(x.publish_date||'')}</td><td class="row-actions"><button class="small-btn edit" onclick="editNotice('${esc(x.id)}')">Edit</button><button class="small-btn del" onclick="del('notices','${esc(x.id)}')">Delete</button></td></tr>`).join('')+`</tbody></table>`;
 }
-async function checkAdmin(){
-  if(localAdminAvailable()){q('loginBox').hidden=true;q('adminBox').hidden=false;q('adminUser').textContent=cloudAccessToken?'Online Admin':'অফলাইন অ্যাডমিন';await loadDividendVisibility();renderAdminData();return;}
-  q('loginBox').hidden=false;q('adminBox').hidden=true;
-  q('loginMsg').textContent=online()?'অনলাইনে অ্যাডমিন লগইন করুন। প্রথমবার সফল লগইনের পর অফলাইনেও ব্যবহার করা যাবে।':'ইন্টারনেট নেই। অফলাইন অ্যাডমিন চালু করতে আগে একবার অনলাইনে অ্যাডমিন লগইন করতে হবে।';
-}
-async function login(){
-  if(!online()){showMessage('ইন্টারনেট সংযোগ নেই। আগে একবার অনলাইনে অ্যাডমিন লগইন করতে হবে।',false,'loginMsg');return}
-  showMessage('লগইন হচ্ছে...',true,'loginMsg');
-  try{
-    const email=q('adminEmail').value.trim(),password=q('adminPassword').value;
-    const data=await cloudFetch('/auth/v1/token?grant_type=password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
-    cloudAccessToken=data.access_token||'';if(!cloudAccessToken)throw new Error('লগইন টোকেন পাওয়া যায়নি।');
-    localStorage.setItem('alikhwan_cloud_access_token',cloudAccessToken);localStorage.setItem('alikhwan_offline_admin','1');offlineAdminUnlocked=true;
-    await loadLocal();
-    const admins=await cloudSelect('admin_users',`user_id=eq.${encodeURIComponent(data.user?.id||'')}`);
-    if(!admins.length){localStorage.removeItem('alikhwan_offline_admin');offlineAdminUnlocked=false;throw new Error('এই অ্যাকাউন্টে অ্যাডমিন অনুমতি নেই।');}
-    await syncFromCloud(true);await loadLocal();await checkAdmin();q('adminPassword').value='';showMessage('অনলাইন অ্যাডমিন লগইন সফল। এখন এই ডিভাইসে অফলাইনেও ব্যবহার করা যাবে। ✓',true,'loginMsg');
-  }catch(e){showMessage(e.message||'লগইন ব্যর্থ হয়েছে।',false,'loginMsg');}
-}
-async function logout(){cloudAccessToken='';localStorage.removeItem('alikhwan_cloud_access_token');localStorage.removeItem('alikhwan_offline_admin');offlineAdminUnlocked=false;location.hash='admin';await checkAdmin()}
-async function offlineAdminLogin(){if(offlineAdminUnlocked){q('loginBox').hidden=true;q('adminBox').hidden=false;q('adminUser').textContent='অফলাইন অ্যাডমিন';await loadLocal();renderAdminData();return;}showMessage('এই ডিভাইসে এখনো অফলাইন অ্যাডমিন অনুমোদন সক্রিয় হয়নি।',false,'loginMsg')}
-async function manualSync(){if(!online()){showMessage('ইন্টারনেট সংযোগ নেই।',false);return}if(!cloudAccessToken){showMessage('আগে অনলাইন অ্যাডমিন লগইন করুন।',false);return}showMessage('সিঙ্ক হচ্ছে...',true);const ok=await syncFromCloud(true);await loadLocal();showMessage(ok?'অনলাইন ডাটার সাথে সিঙ্ক সম্পন্ন হয়েছে ✓':'সিঙ্ক সম্পন্ন হয়নি।',ok);}
-window.addEventListener('online',()=>{syncFromCloud().then(loadLocal)});
+async function checkAdmin(){if(!sb)return;const {data:{session}}=await sb.auth.getSession();adminUser=session?.user||null;if(!adminUser){q('loginBox').hidden=false;q('adminBox').hidden=true;return}const {data,error}=await sb.from('admin_users').select('user_id').eq('user_id',adminUser.id).maybeSingle();if(error||!data){q('loginBox').hidden=false;q('adminBox').hidden=true;q('loginMsg').textContent='এই অ্যাকাউন্টে অ্যাডমিন অনুমতি নেই।';return}q('loginBox').hidden=true;q('adminBox').hidden=false;q('adminUser').textContent=adminUser.email||'Admin';loadDividendVisibility().then(()=>renderAdminData())}
+async function login(){if(!sb){showMessage('Supabase configuration পাওয়া যায়নি।',false,'loginMsg');return}showMessage('লগইন হচ্ছে...',true,'loginMsg');const {error}=await sb.auth.signInWithPassword({email:q('adminEmail').value.trim(),password:q('adminPassword').value});if(error){showMessage(error.message,false,'loginMsg');return}await checkAdmin();q('adminPassword').value=''}
+async function logout(){await sb.auth.signOut();location.hash='admin';location.reload()}
 function openForm(name){document.querySelectorAll('.admin-form').forEach(f=>f.classList.remove('active'));const f=q(name+'Form');if(f)f.classList.add('active')}
 function openManagement(name){document.querySelectorAll('.admin-data').forEach(x=>x.classList.remove('active'));q('managementArea').style.display='block';const target=q('manage'+name.charAt(0).toUpperCase()+name.slice(1));if(target)target.classList.add('active');if(name==='payments'||name==='profits'||name==='dividendVisibility')renderAdminData()}
 function setMenu(open){const menu=q('mobileMenu'),overlay=q('menuOverlay'),btn=q('menuBtn');menu.classList.toggle('open',open);overlay.classList.toggle('show',open);btn.setAttribute('aria-expanded',String(open));document.body.classList.toggle('menu-open',open)}
@@ -565,7 +544,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   q('footerYear').textContent=new Date().getFullYear();
   q('menuBtn').addEventListener('click',()=>setMenu(true));q('menuClose').addEventListener('click',()=>setMenu(false));q('menuOverlay').addEventListener('click',()=>setMenu(false));document.querySelectorAll('#mobileMenu a').forEach(a=>a.addEventListener('click',()=>setMenu(false)));window.addEventListener('hashchange',route);
   q('personalForm').addEventListener('submit',e=>{e.preventDefault();renderPersonal()});q('membersForm').addEventListener('submit',e=>{e.preventDefault();renderAllMembers()});q('paymentManageYear').addEventListener('change',()=>renderAdminData());q('paymentManageMonth').addEventListener('change',()=>renderAdminData());q('paymentManageMember').addEventListener('change',()=>renderAdminData());
-  q('loginBtn').addEventListener('click',login);q('logoutBtn').addEventListener('click',logout);const syncBtn=document.createElement('button');syncBtn.type='button';syncBtn.className='btn btn-light';syncBtn.textContent='🔄 সিঙ্ক';syncBtn.style.marginTop='6px';syncBtn.addEventListener('click',manualSync);q('adminBox').querySelector('.adminbar').appendChild(syncBtn);const offlineBtn=document.createElement('button');offlineBtn.type='button';offlineBtn.className='btn btn-light full';offlineBtn.textContent='📴 অফলাইন অ্যাডমিন প্রবেশ';offlineBtn.style.marginTop='8px';offlineBtn.addEventListener('click',offlineAdminLogin);q('loginBox').appendChild(offlineBtn);
+  q('loginBtn').addEventListener('click',login);q('logoutBtn').addEventListener('click',logout);
   q('addOpen').addEventListener('click',()=>{const value=q('addSelect').value;if(!value){showMessage('আগে একটি যুক্ত করার বিষয় নির্বাচন করুন।',false);return}openForm(value);q('addArea').scrollIntoView({behavior:'smooth',block:'start'})});
   q('manageOpen').addEventListener('click',()=>{const value=q('manageSelect').value;if(!value){showMessage('আগে একটি সম্পাদনার বিষয় নির্বাচন করুন।',false);return}openManagement(value);q('managementArea').scrollIntoView({behavior:'smooth',block:'start'})});
   q('memberForm').addEventListener('submit',e=>{e.preventDefault();saveMember()});q('paymentForm').addEventListener('submit',e=>{e.preventDefault();savePayment()});q('profitForm').addEventListener('submit',e=>{e.preventDefault();saveProfit()});q('expenseForm').addEventListener('submit',e=>{e.preventDefault();saveExpense()});q('assetForm').addEventListener('submit',e=>{e.preventDefault();saveAsset()});q('noticeForm').addEventListener('submit',e=>{e.preventDefault();saveNotice()});

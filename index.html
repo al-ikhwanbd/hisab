@@ -10,6 +10,7 @@
 <link rel="manifest" href="manifest.json?v=2">
 <title>আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ — হিসাব</title>
 <link rel="stylesheet" href="style.css?v=44">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <header class="top-header">
@@ -164,9 +165,7 @@
 <footer>
   <div class="container">© <span id="footerYear"></span> আল ইখওয়ান ইসলামী সংস্থা বাংলাদেশ<div class="footer-sub">সকল অধিকার সংরক্ষিত</div></div>
 </footer>
-<script src="offline-config.js"></script>
-<script src="offline-db.js"></script>
-<script src="script.js?v=offline1"></script>
-<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));}</script>
+<script src="supabase-config.js"></script>
+<script src="script.js?v=45"></script>
 </body>
 </html>
